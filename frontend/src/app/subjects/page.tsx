@@ -25,7 +25,8 @@ export default function SubjectsPage() {
 
   const fetchSubjects = async () => {
     try {
-      const res = await fetch("http://127.0.0.1:8000/subjects/");
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000';
+      const res = await fetch(`${apiUrl}/subjects/`);
       if (res.ok) {
         const data = await res.json();
         setSubjects(data);
@@ -42,7 +43,8 @@ export default function SubjectsPage() {
     setCreating(true);
     
     try {
-      const res = await fetch("http://127.0.0.1:8000/subjects/import-playlist", {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000';
+      const res = await fetch(`${apiUrl}/subjects/import-playlist`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

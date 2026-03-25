@@ -42,8 +42,9 @@ export default function SubjectDashboard({ params }: { params: Promise<{ id: str
   const fetchSubjectData = async () => {
     setLoading(true);
     try {
-      const subRes = await fetch(`http://127.0.0.1:8000/subjects/${resolvedParams.id}`);
-      const vidRes = await fetch(`http://127.0.0.1:8000/subjects/${resolvedParams.id}/videos/`);
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000';
+      const subRes = await fetch(`${apiUrl}/subjects/${resolvedParams.id}`);
+      const vidRes = await fetch(`${apiUrl}/subjects/${resolvedParams.id}/videos/`);
       
       if (subRes.ok && vidRes.ok) {
         const subData = await subRes.json();
@@ -64,7 +65,8 @@ export default function SubjectDashboard({ params }: { params: Promise<{ id: str
 
   const toggleComplete = async (videoId: string, currentCompleted: boolean) => {
     try {
-      const res = await fetch(`http://127.0.0.1:8000/videos/${videoId}/complete?completed=${!currentCompleted}`, {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000';
+      const res = await fetch(`${apiUrl}/videos/${videoId}/complete?completed=${!currentCompleted}`, {
         method: "PUT"
       });
       if (res.ok) {
@@ -80,7 +82,8 @@ export default function SubjectDashboard({ params }: { params: Promise<{ id: str
 
   const fetchSubjectOnly = async () => {
     try {
-      const subRes = await fetch(`http://127.0.0.1:8000/subjects/${resolvedParams.id}`);
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000';
+      const subRes = await fetch(`${apiUrl}/subjects/${resolvedParams.id}`);
       if (subRes.ok) setSubject(await subRes.json());
     } catch (err) {}
   };
