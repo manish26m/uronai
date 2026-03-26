@@ -260,14 +260,16 @@ def delete_subject(subject_id: str, user=Depends(get_current_user)):
 def generate_detailed_roadmap(req: WizardRequest, user=Depends(get_current_user)):
     # 1. Extract YouTube transcript if provided
     transcript_snippet = ""
+    vid_id = ""
     if req.youtube_url:
         try:
             from youtube_transcript_api import YouTubeTranscriptApi
             vid_id_match = re.search(r"(?:v=|youtu\.be/)([a-zA-Z0-9_-]{11})", req.youtube_url)
             if vid_id_match:
-                transcript_data = YouTubeTranscriptApi.get_transcript(vid_id_match.group(1))
+                vid_id = vid_id_match.group(1)
+                transcript_data = YouTubeTranscriptApi.get_transcript(vid_id)
                 full_text = " ".join([t["text"] for t in transcript_data])
-                transcript_snippet = full_text[:3000] # Use more text for Gemini!
+                transcript_snippet = full_text[:6000] # Provide massive context window for Gemini quizzes
         except Exception as ex:
             print(f"Transcript error: {ex}")
 
@@ -285,7 +287,7 @@ def generate_detailed_roadmap(req: WizardRequest, user=Depends(get_current_user)
             nodes, edges, y = [], [], 0
             for i, m in enumerate(modules):
                 nid = str(m.get("id", i + 1))
-                nodes.append({"id": nid, "type": "custom", "title": m.get("title", f"Module {nid}"), "description": m.get("description", ""), "status": "active" if i == 0 else "locked", "position": {"x": 300 + (i % 2) * 180, "y": y}, "transcript": transcript_snippet if i == 0 else ""})
+                nodes.append({"id": nid, "type": "custom", "title": m.get("title", f"Module {nid}"), "description": m.get("description", ""), "status": "active" if i == 0 else "locked", "position": {"x": 300 + (i % 2) * 180, "y": y}, "transcript": transcript_snippet, "video_id": vid_id})
                 y += 160
                 for dep in m.get("depends_on", []):
                     edges.append({"id": f"e{dep}-{nid}", "source": str(dep), "target": nid, "animated": True})
@@ -342,11 +344,11 @@ def generate_quiz(req: QuizRequest, user=Depends(get_current_user)):
     db_user = user_collection.find_one({"_id": ObjectId(user["id"])})
 
     if req.transcript:
-        context = f"Based strictly on this video transcript: {req.transcript[:2500]}. "
+        context = f"You are a strict academic evaluator. Based STRICTLY on this specific video transcript and nothing else: {req.transcript[:5500]}. "
     else:
-        context = f"Based on the academic subject '{req.subject}'. "
+        context = f"You are a strict academic evaluator. Based on the concept of '{req.topic}'. "
     
-    prompt = f"{context}Generate exactly 4 multiple choice questions to test understanding. Output ONLY a raw JSON array, without markdown. Format: [{{\"id\":1,\"question\":\"...\",\"options\":[\"A\",\"B\",\"C\",\"D\"],\"answer\":\"A\",\"explanation\":\"...\"}}]"
+    prompt = f"{context}Generate exactly 4 extremely specific multiple choice questions. The questions must test unique facts explicitly mentioned in the text provided. Output ONLY a raw JSON array. Format: [{{\"id\":1,\"question\":\"...\",\"options\":[\"A\",\"B\",\"C\",\"D\"],\"answer\":\"A\",\"explanation\":\"...\"}}]"
 
     try:
         text = generate_gemini_content(prompt, db_user.get("gemini_api_key", ""), "gemini-pro")

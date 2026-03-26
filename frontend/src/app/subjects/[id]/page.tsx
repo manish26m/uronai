@@ -10,7 +10,7 @@ import { Node, Edge } from "@xyflow/react";
 
 interface RoadmapNode {
   id: string; title: string; type: string;
-  status: string; score?: number; position?: { x: number; y: number }; transcript?: string;
+  status: string; score?: number; position?: { x: number; y: number }; transcript?: string; video_id?: string;
 }
 interface Subject {
   id: string; title: string; description?: string;
@@ -73,7 +73,10 @@ export default function LearningArena({ params }: { params: Promise<{ id: string
     if (!back) return;
     setActiveNode(back); setQuiz(null); setQuizResult(null); setAnswers({}); setChatHistory([]);
     setTranscript(back.transcript || "");
-    if (back.status !== "locked") fetchVideoAndTranscript(back.title, back.transcript);
+    if (back.status !== "locked") {
+      if (back.video_id) setVideoId(back.video_id);
+      else fetchVideoAndTranscript(back.title, back.transcript);
+    }
   };
 
   const fetchVideoAndTranscript = async (topic: string, existingTranscript?: string) => {
