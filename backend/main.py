@@ -62,10 +62,26 @@ def parse_user(doc) -> dict:
 def parse_subject(doc) -> dict:
     return {"id": str(doc["_id"]), "user_id": doc.get("user_id",""), "title": doc.get("title",""), "description": doc.get("description",""), "progress_percentage": doc.get("progress_percentage",0), "nodes": doc.get("nodes",[]), "edges": doc.get("edges",[]), "xp": doc.get("xp",0), "level": doc.get("level",1), "created_at": doc.get("created_at","")}
 
-def generate_gemini_content(prompt: str, user_api_key: str = "", model_name: str = "gemini-1.5-flash") -> str:
+def generate_gemini_content(prompt: str, user_api_key: str = "", default_model: str = "gemini-pro") -> str:
     key = user_api_key if user_api_key else GEMINI_API_KEY
     if not key: raise HTTPException(status_code=400, detail="The platform's default AI key is missing. Please add your own Google Gemini API Key in the Settings page to continue.")
     
+    model_name = default_model
+    try:
+        models_url = f"https://generativelanguage.googleapis.com/v1beta/models?key={key}"
+        m_res = requests.get(models_url, timeout=5)
+        if m_res.status_code == 200:
+            models_data = m_res.json().get("models", [])
+            available = [m["name"].replace("models/", "") for m in models_data if "generateContent" in m.get("supportedGenerationMethods", [])]
+            if "gemini-1.5-pro" in available:
+                model_name = "gemini-1.5-pro"
+            elif "gemini-1.5-flash" in available:
+                model_name = "gemini-1.5-flash"
+            elif available:
+                model_name = available[0]
+    except Exception:
+        pass
+
     url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={key}"
     headers = {"Content-Type": "application/json"}
     data = {"contents": [{"parts":[{"text": prompt}]}]}
@@ -76,7 +92,9 @@ def generate_gemini_content(prompt: str, user_api_key: str = "", model_name: str
         res_json = response.json()
         return res_json["candidates"][0]["content"]["parts"][0]["text"]
     except requests.exceptions.HTTPError as ex:
-        err_msg = ex.response.json().get("error", {}).get("message", str(ex))
+        err_msg = ""
+        try: err_msg = ex.response.json().get("error", {}).get("message", str(ex))
+        except: err_msg = str(ex)
         raise HTTPException(status_code=500, detail=f"Gemini API Error: {err_msg}")
     except Exception as ex:
         raise HTTPException(status_code=500, detail=f"Gemini API Error: {str(ex)}")
