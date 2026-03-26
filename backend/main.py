@@ -63,7 +63,7 @@ def parse_user(doc) -> dict:
 def parse_subject(doc) -> dict:
     return {"id": str(doc["_id"]), "user_id": doc.get("user_id",""), "title": doc.get("title",""), "description": doc.get("description",""), "progress_percentage": doc.get("progress_percentage",0), "nodes": doc.get("nodes",[]), "edges": doc.get("edges",[]), "xp": doc.get("xp",0), "level": doc.get("level",1), "created_at": doc.get("created_at","")}
 
-def get_gemini_model(user_api_key: str = "", model_name: str = "gemini-1.5-flash"):
+def get_gemini_model(user_api_key: str = "", model_name: str = "gemini-1.5-flash-latest"):
     key = user_api_key if user_api_key else GEMINI_API_KEY
     if not key: raise HTTPException(status_code=500, detail="No Gemini API Key found")
     genai.configure(api_key=key)
@@ -242,7 +242,7 @@ def generate_detailed_roadmap(req: WizardRequest, user=Depends(get_current_user)
             print(f"Transcript error: {ex}")
 
     db_user = user_collection.find_one({"_id": ObjectId(user["id"])})
-    model = get_gemini_model(db_user.get("gemini_api_key", ""), "gemini-1.5-flash")
+    model = get_gemini_model(db_user.get("gemini_api_key", ""), "gemini-1.5-flash-latest")
 
     extra = f" Base the roadmap strictly on this YouTube video transcript: {transcript_snippet}" if transcript_snippet else ""
     prompt = f"Create a highly detailed, step-by-step learning roadmap for '{req.goal}', designed to be completed in approximately '{req.timeframe}'. {extra} Output ONLY a raw JSON array of module objects. Format exactly as: [{{\"id\":\"1\",\"title\":\"Module Name\",\"description\":\"...\",\"depends_on\":[]}}]"
@@ -309,7 +309,7 @@ def evaluate_node(subject_id: str, node_id: str, score: int, user=Depends(get_cu
 @app.post("/quizzes/generate")
 def generate_quiz(req: QuizRequest, user=Depends(get_current_user)):
     db_user = user_collection.find_one({"_id": ObjectId(user["id"])})
-    model = get_gemini_model(db_user.get("gemini_api_key", ""), "gemini-1.5-flash")
+    model = get_gemini_model(db_user.get("gemini_api_key", ""), "gemini-1.5-flash-latest")
 
     if req.transcript:
         context = f"Based strictly on this video transcript: {req.transcript[:2500]}. "
@@ -356,7 +356,7 @@ def search_youtube(q: str):
 @app.post("/mentor/chat")
 def mentor_chat(req: ChatRequest, user=Depends(get_current_user)):
     db_user = user_collection.find_one({"_id": ObjectId(user["id"])})
-    model = get_gemini_model(db_user.get("gemini_api_key", ""), "gemini-1.5-flash")
+    model = get_gemini_model(db_user.get("gemini_api_key", ""), "gemini-1.5-flash-latest")
 
     prompt = f"You are an expert AI tutor. The student is currently studying: '{req.context}'. They say: '{req.message}'. Reply with a concise, encouraging, and clear explanation."
     try:
