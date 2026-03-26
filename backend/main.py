@@ -9,7 +9,6 @@ from jose import JWTError, jwt
 from datetime import datetime, timedelta
 import os, requests, re, json, uuid
 from dotenv import load_dotenv
-import google.generativeai as genai
 
 load_dotenv()
 from database import subject_collection, video_collection, db
@@ -63,21 +62,24 @@ def parse_user(doc) -> dict:
 def parse_subject(doc) -> dict:
     return {"id": str(doc["_id"]), "user_id": doc.get("user_id",""), "title": doc.get("title",""), "description": doc.get("description",""), "progress_percentage": doc.get("progress_percentage",0), "nodes": doc.get("nodes",[]), "edges": doc.get("edges",[]), "xp": doc.get("xp",0), "level": doc.get("level",1), "created_at": doc.get("created_at","")}
 
-def get_gemini_model(user_api_key: str = "", model_name: str = "gemini-1.5-flash"):
+def generate_gemini_content(prompt: str, user_api_key: str = "", model_name: str = "gemini-1.5-flash") -> str:
     key = user_api_key if user_api_key else GEMINI_API_KEY
     if not key: raise HTTPException(status_code=400, detail="The platform's default AI key is missing. Please add your own Google Gemini API Key in the Settings page to continue.")
-    genai.configure(api_key=key)
+    
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={key}"
+    headers = {"Content-Type": "application/json"}
+    data = {"contents": [{"parts":[{"text": prompt}]}]}
+    
     try:
-        available = str([m.name for m in genai.list_models()])
-        if "gemini-1.5-pro" in available:
-            target_model = "gemini-1.5-pro"
-        elif "gemini-1.5-flash" in available:
-            target_model = "gemini-1.5-flash"
-        else:
-            target_model = model_name
-    except Exception:
-        target_model = model_name
-    return genai.GenerativeModel(target_model)
+        response = requests.post(url, headers=headers, json=data)
+        response.raise_for_status()
+        res_json = response.json()
+        return res_json["candidates"][0]["content"]["parts"][0]["text"]
+    except requests.exceptions.HTTPError as ex:
+        err_msg = ex.response.json().get("error", {}).get("message", str(ex))
+        raise HTTPException(status_code=500, detail=f"Gemini API Error: {err_msg}")
+    except Exception as ex:
+        raise HTTPException(status_code=500, detail=f"Gemini API Error: {str(ex)}")
 
 def get_current_user(creds: HTTPAuthorizationCredentials = Depends(bearer)):
     if not creds:
@@ -252,14 +254,13 @@ def generate_detailed_roadmap(req: WizardRequest, user=Depends(get_current_user)
             print(f"Transcript error: {ex}")
 
     db_user = user_collection.find_one({"_id": ObjectId(user["id"])})
-    model = get_gemini_model(db_user.get("gemini_api_key", ""), "gemini-pro")
 
     extra = f" Base the roadmap strictly on this YouTube video transcript: {transcript_snippet}" if transcript_snippet else ""
     prompt = f"Create a highly detailed, step-by-step learning roadmap for '{req.goal}', designed to be completed in approximately '{req.timeframe}'. {extra} Output ONLY a raw JSON array of module objects. Format exactly as: [{{\"id\":\"1\",\"title\":\"Module Name\",\"description\":\"...\",\"depends_on\":[]}}]"
 
     try:
-        response = model.generate_content(prompt)
-        text = response.text.replace("```json", "").replace("```", "").strip()
+        text = generate_gemini_content(prompt, db_user.get("gemini_api_key", ""))
+        text = text.replace("```json", "").replace("```", "").strip()
         s, e = text.find("["), text.rfind("]")
         if s != -1 and e != -1:
             modules = json.loads(text[s:e+1])
@@ -271,6 +272,8 @@ def generate_detailed_roadmap(req: WizardRequest, user=Depends(get_current_user)
                 for dep in m.get("depends_on", []):
                     edges.append({"id": f"e{dep}-{nid}", "source": str(dep), "target": nid, "animated": True})
             return {"nodes": nodes, "edges": edges, "title": req.goal}
+    except HTTPException:
+        raise
     except Exception as ex:
         print(f"Gemini Graph Error: {ex}")
         raise HTTPException(status_code=500, detail=f"Gemini API Error: {str(ex)}")
@@ -319,7 +322,6 @@ def evaluate_node(subject_id: str, node_id: str, score: int, user=Depends(get_cu
 @app.post("/quizzes/generate")
 def generate_quiz(req: QuizRequest, user=Depends(get_current_user)):
     db_user = user_collection.find_one({"_id": ObjectId(user["id"])})
-    model = get_gemini_model(db_user.get("gemini_api_key", ""), "gemini-pro")
 
     if req.transcript:
         context = f"Based strictly on this video transcript: {req.transcript[:2500]}. "
@@ -329,11 +331,13 @@ def generate_quiz(req: QuizRequest, user=Depends(get_current_user)):
     prompt = f"{context}Generate exactly 4 multiple choice questions to test understanding. Output ONLY a raw JSON array, without markdown. Format: [{{\"id\":1,\"question\":\"...\",\"options\":[\"A\",\"B\",\"C\",\"D\"],\"answer\":\"A\",\"explanation\":\"...\"}}]"
 
     try:
-        response = model.generate_content(prompt)
-        text = response.text.replace("```json", "").replace("```", "").strip()
+        text = generate_gemini_content(prompt, db_user.get("gemini_api_key", ""), "gemini-pro")
+        text = text.replace("```json", "").replace("```", "").strip()
         s, e = text.find("["), text.rfind("]")
         if s != -1 and e != -1:
             return {"questions": json.loads(text[s:e+1])}
+    except HTTPException:
+        raise
     except Exception as ex:
         print(f"Quiz error: {ex}")
         raise HTTPException(status_code=500, detail="Failed to generate quiz. Verify Gemini API key.")
@@ -366,12 +370,13 @@ def search_youtube(q: str):
 @app.post("/mentor/chat")
 def mentor_chat(req: ChatRequest, user=Depends(get_current_user)):
     db_user = user_collection.find_one({"_id": ObjectId(user["id"])})
-    model = get_gemini_model(db_user.get("gemini_api_key", ""), "gemini-pro")
 
     prompt = f"You are an expert AI tutor. The student is currently studying: '{req.context}'. They say: '{req.message}'. Reply with a concise, encouraging, and clear explanation."
     try:
-        response = model.generate_content(prompt)
-        return {"reply": response.text.strip()}
+        text = generate_gemini_content(prompt, db_user.get("gemini_api_key", ""), "gemini-pro")
+        return {"reply": text.strip()}
+    except HTTPException:
+        raise
     except Exception as ex:
         print(f"Chat error: {ex}")
-        return {"reply": "I'm having trouble thinking right now. Please check if your Gemini API key is configured correctly in Settings!"}
+        raise HTTPException(status_code=500, detail="Chat generation failed.")
