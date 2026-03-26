@@ -71,6 +71,9 @@ class PlaylistImport(BaseModel):
     title: str
     playlist_url: str
 
+class FlowRequest(BaseModel):
+    topic: str
+    
 class QuizRequest(BaseModel):
     subject: str
 
@@ -176,6 +179,67 @@ def mark_video_complete(video_id: str, completed: bool):
         subject_collection.update_one({"_id": ObjectId(sub_id)}, {"$set": {"progress_percentage": new_prog}})
         
     return parse_video(doc)
+
+@app.post("/subjects/generate-flow")
+def generate_flow(request: FlowRequest):
+    headers = {"Authorization": f"Bearer {HF_API_KEY}", "Content-Type": "application/json"}
+    prompt = f"[INST] You are an expert AI Curriculum architect. Create a 4-step learning roadmap for {request.topic}. Strictly output raw JSON with a 'modules' array. Each module must have 'id' (string '1', '2', etc), 'title', and 'depends_on' (array of parent string ids). No other text. [/INST]"
+    
+    payload = {
+        "inputs": prompt,
+        "parameters": {"max_new_tokens": 800, "return_full_text": False, "temperature": 0.4}
+    }
+    
+    try:
+        res = requests.post("https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.2", headers=headers, json=payload, timeout=20)
+        if res.status_code == 200:
+            text = res.json()[0]['generated_text'].strip()
+            if text.startswith("```json"): text = text[7:]
+            if text.startswith("```"): text = text[3:]
+            if text.endswith("```"): text = text[:-3]
+            
+            match = re.search(r'\{.*\}', text.strip(), re.DOTALL)
+            if match:
+                data = json.loads(match.group(0))
+                modules = data.get("modules", [])
+                
+                nodes = []
+                edges = []
+                y_pos = 0
+                for idx, m in enumerate(modules):
+                    node_id = str(m.get("id", idx+1))
+                    nodes.append({
+                        "id": node_id,
+                        "type": "custom",
+                        "position": {"x": 350 + (idx % 2 * 100), "y": y_pos},
+                        "data": {"label": m.get("title", f"Module {node_id}"), "isRoot": idx == 0}
+                    })
+                    y_pos += 150
+                    
+                    for dep in m.get("depends_on", []):
+                        edges.append({
+                            "id": f"e{dep}-{node_id}",
+                            "source": str(dep),
+                            "target": node_id,
+                            "animated": True
+                        })
+                return {"nodes": nodes, "edges": edges}
+    except Exception as e:
+        print(f"HF Flow Error: {e}")
+        pass
+
+    # Fallback mock
+    return {
+        "nodes": [
+            {"id": "1", "type": "custom", "position": {"x": 350, "y": 0}, "data": {"label": f"Introduction to {request.topic}", "isRoot": True}},
+            {"id": "2", "type": "custom", "position": {"x": 250, "y": 150}, "data": {"label": "Core Fundamentals", "isRoot": False}},
+            {"id": "3", "type": "custom", "position": {"x": 450, "y": 150}, "data": {"label": "Advanced Techniques", "isRoot": False}}
+        ],
+        "edges": [
+            {"id": "e1-2", "source": "1", "target": "2", "animated": True},
+            {"id": "e1-3", "source": "1", "target": "3", "animated": True}
+        ]
+    }
 
 @app.post("/quizzes/generate")
 def generate_quiz(request: QuizRequest):
