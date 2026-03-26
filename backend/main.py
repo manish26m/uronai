@@ -34,7 +34,11 @@ def parse_subject(doc):
         "id": str(doc["_id"]),
         "title": doc.get("title", ""),
         "description": doc.get("description"),
-        "progress_percentage": doc.get("progress_percentage", 0)
+        "progress_percentage": doc.get("progress_percentage", 0),
+        "nodes": doc.get("nodes", []),
+        "edges": doc.get("edges", []),
+        "xp": doc.get("xp", 0),
+        "level": doc.get("level", 1)
     }
 
 def parse_video(doc):
@@ -56,10 +60,27 @@ class Video(VideoBase):
     id: str
     subject_id: str
 
+class RoadmapNode(BaseModel):
+    id: str
+    type: str = "learning"
+    title: str
+    status: str = "locked"
+    score: Optional[int] = None
+    url: Optional[str] = None
+    
+class RoadmapEdge(BaseModel):
+    id: str
+    source: str
+    target: str
+
 class SubjectBase(BaseModel):
     title: str
     description: Optional[str] = None
     progress_percentage: int = 0
+    nodes: List[RoadmapNode] = []
+    edges: List[RoadmapEdge] = []
+    xp: int = 0
+    level: int = 1
 
 class SubjectCreate(SubjectBase):
     pass
@@ -240,6 +261,100 @@ def generate_flow(request: FlowRequest):
             {"id": "e1-3", "source": "1", "target": "3", "animated": True}
         ]
     }
+
+@app.post("/subjects/evaluate-node/{subject_id}/{node_id}")
+def evaluate_node(subject_id: str, node_id: str, score: int):
+    # Retrieve the subject entirely
+    doc = subject_collection.find_one({"_id": ObjectId(subject_id)})
+    if not doc: raise HTTPException(status_code=404)
+    
+    nodes = doc.get("nodes", [])
+    edges = doc.get("edges", [])
+    
+    current_node = next((n for n in nodes if n["id"] == node_id), None)
+    if not current_node: raise HTTPException(status_code=404)
+    
+    current_node["score"] = score
+    doc["xp"] = doc.get("xp", 0) + score
+    
+    # Adaptive Logic Decision Engine
+    if score < 50:
+        current_node["status"] = "failed"
+        # In a full system, here we query HuggingFace to inject revision nodes.
+        # For MVP, we simply reset it to active to force a re-try
+        current_node["status"] = "active"
+    elif score >= 80:
+        current_node["status"] = "completed"
+        doc["xp"] += 50 # Bonus XP
+        
+        # Unlock immediately dependent nodes
+        children_ids = [e["target"] for e in edges if e["source"] == node_id]
+        for n in nodes:
+            if n["id"] in children_ids:
+                n["status"] = "active"
+    else:
+        current_node["status"] = "completed"
+        children_ids = [e["target"] for e in edges if e["source"] == node_id]
+        for n in nodes:
+            if n["id"] in children_ids:
+                n["status"] = "active"
+                
+    # Recalculate global subject progress
+    total = len(nodes)
+    comp = len([n for n in nodes if n["status"] == "completed"])
+    doc["progress_percentage"] = int((comp / total) * 100) if total > 0 else 0
+    
+    subject_collection.update_one({"_id": ObjectId(subject_id)}, {"$set": {"nodes": nodes, "edges": edges, "xp": doc["xp"], "progress_percentage": doc["progress_percentage"]}})
+    
+    return parse_subject(doc)
+
+@app.post("/subjects/evaluate-node/{subject_id}/{node_id}")
+def evaluate_node(subject_id: str, node_id: str, score: int):
+    doc = subject_collection.find_one({"_id": ObjectId(subject_id)})
+    if not doc: raise HTTPException(status_code=404)
+    
+    nodes = doc.get("nodes", [])
+    edges = doc.get("edges", [])
+    
+    current_node = next((n for n in nodes if n["id"] == node_id), None)
+    if not current_node: raise HTTPException(status_code=404)
+    
+    current_node["score"] = score
+    doc["xp"] = doc.get("xp", 0) + score
+    
+    if score < 50:
+        current_node["status"] = "failed"
+        current_node["status"] = "active" # For strict MVP, reactivating the node
+    elif score >= 80:
+        current_node["status"] = "completed"
+        doc["xp"] += 50 
+        
+        children_ids = [e["target"] for e in edges if e["source"] == node_id]
+        for n in nodes:
+            if n["id"] in children_ids:
+                n["status"] = "active"
+    else:
+        current_node["status"] = "completed"
+        children_ids = [e["target"] for e in edges if e["source"] == node_id]
+        for n in nodes:
+            if n["id"] in children_ids:
+                n["status"] = "active"
+                
+    total = len(nodes)
+    comp = len([n for n in nodes if n["status"] == "completed"])
+    doc["progress_percentage"] = int((comp / total) * 100) if total > 0 else 0
+    
+    subject_collection.update_one(
+        {"_id": ObjectId(subject_id)}, 
+        {"$set": {
+            "nodes": nodes, 
+            "edges": edges, 
+            "xp": doc["xp"], 
+            "progress_percentage": doc["progress_percentage"]
+        }}
+    )
+    
+    return parse_subject(doc)
 
 @app.post("/quizzes/generate")
 def generate_quiz(request: QuizRequest):

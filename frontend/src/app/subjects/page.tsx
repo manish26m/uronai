@@ -11,6 +11,8 @@ interface Subject {
   title: string;
   description: string | null;
   progress_percentage: number;
+  level?: number;
+  xp?: number;
 }
 
 export default function SubjectsPage() {
@@ -83,30 +85,33 @@ export default function SubjectsPage() {
     
     try {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000';
+      const payloadNodes = nodes.map((n, index) => ({
+        id: n.id,
+        type: "learning",
+        title: (n.data?.label as string) || "Module",
+        status: index === 0 ? "active" : "locked",
+        url: ""
+      }));
+      
+      const payloadEdges = edges.map(e => ({
+        id: e.id,
+        source: e.source,
+        target: e.target
+      }));
+
       const subRes = await fetch(`${apiUrl}/subjects/`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           title: topicInput,
           description: "AI Generated Learning Roadmap",
-          progress_percentage: 0
+          progress_percentage: 0,
+          nodes: payloadNodes,
+          edges: payloadEdges
         })
       });
       
       if (subRes.ok) {
-        const subject = await subRes.json();
-        for (const node of nodes) {
-          const nodeLabel = (node.data?.label as string) || "Learning Module";
-          await fetch(`${apiUrl}/subjects/${subject.id}/videos/`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              title: nodeLabel,
-              url: `https://youtube.com/results?search_query=${encodeURIComponent(topicInput + " " + nodeLabel)}`, 
-              completed: false
-            })
-          });
-        }
         await fetchSubjects();
         setShowAddForm(false);
         setNodes([]);
@@ -294,14 +299,25 @@ export default function SubjectsPage() {
                 </div>
                 <h3 className="font-bold text-xl mb-2 group-hover:text-blue-400 transition-colors line-clamp-2">{subject.title}</h3>
                 
-                <div className="space-y-2 mt-6">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-400">Progress</span>
+                <div className="space-y-4 mt-6">
+                  <div className="flex justify-between items-end border-b border-gray-800 pb-3">
+                    <div>
+                      <span className="text-gray-400 text-xs uppercase tracking-widest block mb-1">Level</span>
+                      <span className="font-bold text-white text-lg">Lvl {subject.level || 1}</span>
+                    </div>
+                    <div className="text-right">
+                      <span className="text-gray-400 text-xs uppercase tracking-widest block mb-1">XP Points</span>
+                      <span className="font-bold text-blue-400 text-lg">{(subject as any).xp || 0} XP</span>
+                    </div>
+                  </div>
+                  
+                  <div className="flex justify-between text-sm pt-2">
+                    <span className="text-gray-400">Roadmap Progress</span>
                     <span className="font-bold text-white tracking-widest">{subject.progress_percentage}%</span>
                   </div>
                   <div className="w-full bg-gray-800 rounded-full h-2">
                     <div 
-                      className="bg-blue-600 h-2 rounded-full transition-all duration-1000" 
+                      className="bg-blue-600 h-2 rounded-full transition-all duration-1000 shadow-[0_0_10px_rgba(37,99,235,0.5)]" 
                       style={{ width: `${subject.progress_percentage}%` }}
                     />
                   </div>
