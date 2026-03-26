@@ -94,7 +94,11 @@ class PlaylistImport(BaseModel):
 
 class FlowRequest(BaseModel):
     topic: str
-    
+
+class WizardRequest(BaseModel):
+    goal: str
+    path: Optional[str] = None  # "fast" | "foundation" | "career"
+
 class QuizRequest(BaseModel):
     subject: str
 
@@ -106,6 +110,59 @@ class ChatRequest(BaseModel):
 @app.get("/")
 def read_root():
     return {"message": "Welcome to AI Learning OS API (MongoDB Powered)"}
+
+@app.post("/subjects/wizard-paths")
+def wizard_paths(req: WizardRequest):
+    headers = {"Authorization": f"Bearer {HF_API_KEY}", "Content-Type": "application/json"}
+    
+    if req.path is None:
+        # Step 1: Generate 3 path options
+        prompt = f"[INST] A student wants to learn: '{req.goal}'. Generate exactly 3 different learning paths. Output ONLY a raw JSON array, no markdown, no extra text. Format: [{{\"id\":\"fast\",\"name\":\"Fast Track ⚡\",\"description\":\"...\",\"duration\":\"...\",\"modules\":[\"topic1\",\"topic2\",\"topic3\",\"topic4\"]}},{{\"id\":\"foundation\",\"name\":\"Strong Foundation 🧠\",\"description\":\"...\",\"duration\":\"...\",\"modules\":[\"topic1\",\"topic2\",\"topic3\",\"topic4\",\"topic5\"]}},{{\"id\":\"career\",\"name\":\"Career Ready 💼\",\"description\":\"...\",\"duration\":\"...\",\"modules\":[\"topic1\",\"topic2\",\"topic3\",\"topic4\",\"topic5\"]}}] [/INST]"
+        payload = {"inputs": prompt, "parameters": {"max_new_tokens": 600, "return_full_text": False, "temperature": 0.3}}
+        try:
+            res = requests.post("https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.2", headers=headers, json=payload, timeout=18)
+            if res.status_code == 200:
+                text = res.json()[0]['generated_text'].strip()
+                start = text.find('['); end = text.rfind(']')
+                if start != -1 and end != -1:
+                    paths = json.loads(text[start:end+1])
+                    return {"paths": paths}
+        except Exception as e:
+            print(f"Wizard Error: {e}")
+        # Fallback
+        return {"paths": [
+            {"id": "fast", "name": "Fast Track ⚡", "description": "Quick and focused, skip the basics.", "duration": "3 weeks", "modules": [req.goal + " Basics", "Core Concepts", "Projects", "Advanced"]},
+            {"id": "foundation", "name": "Strong Foundation 🧠", "description": "Deep knowledge, from ground up.", "duration": "8 weeks", "modules": [req.goal + " Intro", "Fundamentals", "Theory", "Intermediate", "Projects", "Advanced"]},
+            {"id": "career", "name": "Career Ready 💼", "description": "Industry tools and deployment skills.", "duration": "6 weeks", "modules": [req.goal + " Essentials", "Tools & Ecosystem", "Real Projects", "Deployment", "Portfolio"]},
+        ]}
+    else:
+        # Step 2: Generate graph for chosen path
+        path_name = {"fast": "Fast Track", "foundation": "Strong Foundation", "career": "Career Ready"}.get(req.path, req.path)
+        prompt = f"[INST] Create a learning roadmap for '{req.goal}' using the '{path_name}' approach. Output ONLY a raw JSON array of module objects, no markdown. Format: [{{\"id\":\"1\",\"title\":\"Module Title\",\"type\":\"lesson\",\"depends_on\":[]}},...] Make 5 to 7 modules with proper dependency chains. [/INST]"
+        payload = {"inputs": prompt, "parameters": {"max_new_tokens": 700, "return_full_text": False, "temperature": 0.3}}
+        try:
+            res = requests.post("https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.2", headers=headers, json=payload, timeout=18)
+            if res.status_code == 200:
+                text = res.json()[0]['generated_text'].strip()
+                start = text.find('['); end = text.rfind(']')
+                if start != -1 and end != -1:
+                    modules = json.loads(text[start:end+1])
+                    nodes, edges, y = [], [], 0
+                    for i, m in enumerate(modules):
+                        nid = str(m.get("id", i+1))
+                        nodes.append({"id": nid, "type": "custom", "title": m.get("title", f"Module {nid}"), "status": "active" if i == 0 else "locked", "position": {"x": 300 + (i % 2) * 180, "y": y}})
+                        y += 160
+                        for dep in m.get("depends_on", []):
+                            edges.append({"id": f"e{dep}-{nid}", "source": str(dep), "target": nid, "animated": True})
+                    return {"nodes": nodes, "edges": edges, "title": f"{req.goal} — {path_name}"}
+        except Exception as e:
+            print(f"Wizard Graph Error: {e}")
+        # Fallback
+        topics = ["Introduction", "Core Concepts", "Practice", "Advanced", "Final Project"]
+        nodes = [{"id": str(i+1), "type": "custom", "title": f"{req.goal}: {t}", "status": "active" if i == 0 else "locked", "position": {"x": 300, "y": i*160}} for i, t in enumerate(topics)]
+        edges = [{"id": f"e{i}-{i+1}", "source": str(i), "target": str(i+1), "animated": True} for i in range(1, len(topics))]
+        return {"nodes": nodes, "edges": edges, "title": f"{req.goal} — {path_name}"}
+
 
 @app.post("/subjects/", response_model=Subject)
 def create_subject(subject: SubjectCreate):
