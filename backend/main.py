@@ -63,11 +63,21 @@ def parse_user(doc) -> dict:
 def parse_subject(doc) -> dict:
     return {"id": str(doc["_id"]), "user_id": doc.get("user_id",""), "title": doc.get("title",""), "description": doc.get("description",""), "progress_percentage": doc.get("progress_percentage",0), "nodes": doc.get("nodes",[]), "edges": doc.get("edges",[]), "xp": doc.get("xp",0), "level": doc.get("level",1), "created_at": doc.get("created_at","")}
 
-def get_gemini_model(user_api_key: str = "", model_name: str = "gemini-pro"):
+def get_gemini_model(user_api_key: str = "", model_name: str = "gemini-1.5-flash"):
     key = user_api_key if user_api_key else GEMINI_API_KEY
     if not key: raise HTTPException(status_code=400, detail="The platform's default AI key is missing. Please add your own Google Gemini API Key in the Settings page to continue.")
     genai.configure(api_key=key)
-    return genai.GenerativeModel(model_name)
+    try:
+        available = str([m.name for m in genai.list_models()])
+        if "gemini-1.5-pro" in available:
+            target_model = "gemini-1.5-pro"
+        elif "gemini-1.5-flash" in available:
+            target_model = "gemini-1.5-flash"
+        else:
+            target_model = model_name
+    except Exception:
+        target_model = model_name
+    return genai.GenerativeModel(target_model)
 
 def get_current_user(creds: HTTPAuthorizationCredentials = Depends(bearer)):
     if not creds:
