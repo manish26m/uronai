@@ -1,8 +1,9 @@
 from pymongo import MongoClient
+import certifi
 import os
 
 MONGO_URI = "mongodb+srv://manishm26:12308512@uron.kk2bcr8.mongodb.net/?appName=uron&tls=true"
-client = MongoClient(MONGO_URI)
+client = MongoClient(MONGO_URI, tlsCAFile=certifi.where())
 db = client.uron_db
 
 subject_collection = db["subjects"]
