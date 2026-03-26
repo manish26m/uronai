@@ -45,16 +45,12 @@ def seed_admin():
         user_collection.insert_one({
             "email": ADMIN_EMAIL,
             "name": "Admin",
-            "hashed_password": pwd_ctx.hash(ADMIN_PASS),
+            "hashed_password": hash_password(ADMIN_PASS),
             "role": "admin",
             "avatar": None,
             "created_at": datetime.utcnow().isoformat()
         })
 seed_admin()
-
-# ─────────── Helpers ───────────
-def hash_password(p): return pwd_ctx.hash(p)
-def verify_password(plain, hashed): return pwd_ctx.verify(plain, hashed)
 
 def create_token(data: dict):
     payload = {**data, "exp": datetime.utcnow() + timedelta(minutes=JWT_EXPIRE)}
