@@ -331,7 +331,30 @@ def evaluate_node(subject_id: str, node_id: str, score: int):
     
     if score < 50:
         current_node["status"] = "failed"
-        current_node["status"] = "active" # For strict MVP, reactivating the node
+        
+        # Graph Restructuring: Intelligent AI Sub-Topic Injection
+        import uuid
+        new_node_1_id = str(uuid.uuid4())[:8]
+        new_node_2_id = str(uuid.uuid4())[:8]
+        
+        nodes.append({
+            "id": new_node_1_id,
+            "type": "assessment",
+            "title": f"Review: {current_node['title']} Fundamentals",
+            "status": "active"
+        })
+        nodes.append({
+            "id": new_node_2_id,
+            "type": "learning",
+            "title": f"Practice Drill: {current_node['title']}",
+            "status": "locked"
+        })
+        
+        # Connect current node -> review -> drill -> continue
+        edges.append({"id": f"e-{node_id}-{new_node_1_id}", "source": node_id, "target": new_node_1_id})
+        edges.append({"id": f"e-{new_node_1_id}-{new_node_2_id}", "source": new_node_1_id, "target": new_node_2_id})
+        
+        doc["xp"] -= 10 # small penalty
     elif score >= 80:
         current_node["status"] = "completed"
         doc["xp"] += 50 
@@ -356,7 +379,7 @@ def evaluate_node(subject_id: str, node_id: str, score: int):
         {"$set": {
             "nodes": nodes, 
             "edges": edges, 
-            "xp": doc["xp"], 
+            "xp": max(0, doc["xp"]), 
             "progress_percentage": doc["progress_percentage"]
         }}
     )
