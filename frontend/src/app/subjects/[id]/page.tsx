@@ -1,17 +1,20 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { CheckCircle, Circle, PlayCircle, Trophy, Clock, Loader2 } from "lucide-react";
+import { CheckCircle, Circle, PlayCircle, Trophy, Clock, Loader2, Lock, ArrowRight, ShieldAlert, Sparkles } from "lucide-react";
 import Link from "next/link";
 import { use } from "react";
+import Flowchart from "@/components/Flowchart";
+import { Node, Edge } from "@xyflow/react";
 
-// Types
-interface Video {
+interface RoadmapNode {
   id: string;
+  type: string;
   title: string;
-  url: string;
-  completed: boolean;
-  subject_id: string;
+  status: string;
+  score?: number;
+  url?: string;
+  position?: { x: number, y: number };
 }
 
 interface Subject {
@@ -19,21 +22,22 @@ interface Subject {
   title: string;
   description: string;
   progress_percentage: number;
+  xp: number;
+  level: number;
+  nodes: RoadmapNode[];
+  edges: Edge[];
 }
-
-// Minimal YouTube ID extractor
-const extractYoutubeId = (url: string) => {
-  const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
-  const match = url.match(regExp);
-  return (match && match[2].length === 11) ? match[2] : "kqtD5dpn9C8"; // Fallback to a valid video
-};
 
 export default function SubjectDashboard({ params }: { params: Promise<{ id: string }> }) {
   const resolvedParams = use(params);
   const [subject, setSubject] = useState<Subject | null>(null);
-  const [videos, setVideos] = useState<Video[]>([]);
-  const [activeVideo, setActiveVideo] = useState<Video | null>(null);
+  
+  const [nodes, setNodes] = useState<Node[]>([]);
+  const [edges, setEdges] = useState<Edge[]>([]);
+  
+  const [activeNode, setActiveNode] = useState<RoadmapNode | null>(null);
   const [loading, setLoading] = useState(true);
+  const [evaluating, setEvaluating] = useState(false);
 
   useEffect(() => {
     fetchSubjectData();
@@ -44,17 +48,21 @@ export default function SubjectDashboard({ params }: { params: Promise<{ id: str
     try {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000';
       const subRes = await fetch(`${apiUrl}/subjects/${resolvedParams.id}`);
-      const vidRes = await fetch(`${apiUrl}/subjects/${resolvedParams.id}/videos/`);
       
-      if (subRes.ok && vidRes.ok) {
+      if (subRes.ok) {
         const subData = await subRes.json();
-        const vidData = await vidRes.json();
-        
         setSubject(subData);
-        setVideos(vidData);
-        if (vidData.length > 0) {
-          setActiveVideo(vidData.find((v: Video) => !v.completed) || vidData[0]);
-        }
+        
+        // Transform backend nodes to ReactFlow nodes
+        const rfNodes = (subData.nodes || []).map((n: RoadmapNode, index: number) => ({
+          id: n.id,
+          type: "custom",
+          position: n.position || { x: 350 + (index % 2 * 100), y: index * 150 },
+          data: { label: n.title, status: n.status, isRoot: index === 0 }
+        }));
+        
+        setNodes(rfNodes);
+        setEdges(subData.edges || []);
       }
     } catch (err) {
       console.error("Failed to fetch subject data", err);
@@ -63,139 +71,168 @@ export default function SubjectDashboard({ params }: { params: Promise<{ id: str
     }
   };
 
-  const toggleComplete = async (videoId: string, currentCompleted: boolean) => {
-    try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000';
-      const res = await fetch(`${apiUrl}/videos/${videoId}/complete?completed=${!currentCompleted}`, {
-        method: "PUT"
-      });
-      if (res.ok) {
-        // Optimistic UI update
-        setVideos(current => current.map(v => v.id === videoId ? { ...v, completed: !currentCompleted } : v));
-        // Refetch subject to get updated true progress percentage
-        fetchSubjectOnly();
-      }
-    } catch (err) {
-      console.error(err);
+  const handleNodeClick = (e: React.MouseEvent, node: Node) => {
+    if (!subject) return;
+    const backendNode = subject.nodes.find(n => n.id === node.id);
+    if (backendNode) {
+      setActiveNode(backendNode);
     }
   };
 
-  const fetchSubjectOnly = async () => {
+  const handleEvaluateNode = async (simulatedScore: number) => {
+    if (!activeNode || !subject) return;
+    setEvaluating(true);
     try {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000';
-      const subRes = await fetch(`${apiUrl}/subjects/${resolvedParams.id}`);
-      if (subRes.ok) setSubject(await subRes.json());
-    } catch (err) {}
+      const res = await fetch(`${apiUrl}/subjects/evaluate-node/${subject.id}/${activeNode.id}?score=${simulatedScore}`, {
+        method: "POST"
+      });
+      if (res.ok) {
+        const updatedSubject = await res.json();
+        setSubject(updatedSubject);
+        
+        // Update ReactFlow graph visibly
+        const rfNodes = (updatedSubject.nodes || []).map((n: RoadmapNode, index: number) => ({
+          id: n.id,
+          type: "custom",
+          position: n.position || { x: 350 + (index % 2 * 100), y: index * 150 },
+          data: { label: n.title, status: n.status, isRoot: index === 0 }
+        }));
+        setNodes(rfNodes);
+        
+        // Update active node panel state
+        setActiveNode(updatedSubject.nodes.find((n: RoadmapNode) => n.id === activeNode.id));
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setEvaluating(false);
+    }
   };
 
   if (loading || !subject) {
     return (
       <div className="flex flex-col items-center justify-center p-32">
         <Loader2 className="animate-spin text-blue-500 mb-4" size={48} />
-        <p className="text-gray-400">Loading Subject Data from DB...</p>
+        <p className="text-gray-400">Syncing Adaptive Graph data...</p>
       </div>
     );
   }
 
-  const completedCount = videos.filter(v => v.completed).length;
-
   return (
-    <div className="max-w-6xl mx-auto w-full">
-      <div className="mb-6 flex items-center justify-between pb-6 border-b border-gray-800">
+    <div className="max-w-7xl mx-auto w-full flex flex-col h-[calc(100vh-100px)]">
+      <div className="mb-6 flex items-center justify-between pb-6 border-b border-gray-800 shrink-0">
         <div>
-          <Link href="/subjects" className="text-blue-500 hover:underline text-sm mb-2 inline-block">← Back to Subjects</Link>
+          <Link href="/subjects" className="text-blue-500 hover:underline text-sm mb-2 inline-block">← Back to Curriculum</Link>
           <h1 className="text-3xl font-bold tracking-tight">{subject.title}</h1>
           <p className="text-gray-400 mt-2">{subject.description}</p>
         </div>
         <div className="flex gap-4">
-          <div className="bg-gray-900 border border-gray-800 p-4 rounded-xl text-center min-w-[120px]">
-            <p className="text-sm text-gray-500 mb-1">Progress</p>
-            <p className="text-2xl font-bold text-blue-500">{subject.progress_percentage}%</p>
+          <div className="bg-gradient-to-br from-gray-900 to-blue-950/20 border border-blue-900/50 p-4 rounded-xl text-center min-w-[120px] shadow-lg shadow-blue-900/20">
+            <p className="text-sm text-blue-400 font-bold mb-1 uppercase tracking-widest">Level</p>
+            <p className="text-3xl font-bold text-white">{subject.level}</p>
+          </div>
+          <div className="bg-gradient-to-br from-gray-900 to-green-950/20 border border-green-900/50 p-4 rounded-xl text-center min-w-[120px] shadow-lg shadow-green-900/10">
+            <p className="text-sm text-green-400 font-bold mb-1 uppercase tracking-widest">XP Points</p>
+            <p className="text-3xl font-bold text-white">{subject.xp}</p>
           </div>
           <div className="bg-gray-900 border border-gray-800 p-4 rounded-xl text-center min-w-[120px]">
-            <p className="text-sm text-gray-500 mb-1">Completed</p>
-            <p className="text-2xl font-bold text-green-500">{completedCount}/{videos.length}</p>
+            <p className="text-sm text-gray-500 mb-1 uppercase tracking-widest font-bold">Progress</p>
+            <p className="text-3xl font-bold text-blue-500">{subject.progress_percentage}%</p>
           </div>
         </div>
       </div>
 
-      {videos.length === 0 ? (
-        <div className="bg-gray-900 border border-gray-800 rounded-xl p-16 text-center text-gray-400">
-          <p>No videos found for this subject.</p>
+      <div className="flex-1 grid grid-cols-1 lg:grid-cols-3 gap-6 overflow-hidden">
+        
+        {/* Interactive Graph Area */}
+        <div className="lg:col-span-2 h-full border-2 border-gray-800 rounded-2xl overflow-hidden shadow-2xl relative bg-black">
+           <Flowchart nodes={nodes} edges={edges} onNodeClick={handleNodeClick} />
         </div>
-      ) : activeVideo && (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          <div className="lg:col-span-2 space-y-6">
-            {/* Main Video Player Area */}
-            <div className="bg-black rounded-xl overflow-hidden aspect-video border border-gray-800 relative shadow-xl shadow-blue-900/5">
-              <iframe 
-                width="100%" 
-                height="100%" 
-                src={`https://www.youtube.com/embed/${extractYoutubeId(activeVideo.url)}?autoplay=0`} 
-                title={activeVideo.title} 
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
-                allowFullScreen
-                className="absolute inset-0 border-0"
-              ></iframe>
-            </div>
 
-            <div className="bg-gray-900 border border-gray-800 p-6 rounded-xl flex justify-between items-center">
-              <div>
-                <h2 className="text-xl font-bold">{activeVideo.title}</h2>
-                <div className="flex items-center gap-4 text-gray-400 text-sm mt-2">
-                  <span className="flex items-center gap-1"><Clock size={16} /> 10:00</span>
-                  <span className="flex items-center gap-1"><Trophy size={16} /> +10 XP</span>
+        {/* Action Panel */}
+        <div className="h-full">
+          {!activeNode ? (
+            <div className="h-full border border-gray-800 border-dashed rounded-2xl flex flex-col items-center justify-center p-10 text-center text-gray-500 bg-gray-900/50">
+               <Sparkles size={48} className="mb-4 text-gray-700" />
+               <h3 className="text-xl font-bold text-gray-400 mb-2">Adaptive Learning Engine</h3>
+               <p>Click on any node in the graph to view its content, complete assessments, and unlock downstream skills!</p>
+            </div>
+          ) : (
+            <div className="h-full bg-gray-900 border border-gray-800 rounded-2xl p-6 flex flex-col animate-in fade-in slide-in-from-right-4 duration-300 shadow-2xl">
+                
+                <div className="flex items-center gap-3 mb-6">
+                  {activeNode.status === 'locked' && <div className="p-3 bg-gray-800 text-gray-500 rounded-xl"><Lock size={24} /></div>}
+                  {activeNode.status === 'active' && <div className="p-3 bg-blue-500/20 text-blue-500 rounded-xl"><PlayCircle size={24} /></div>}
+                  {activeNode.status === 'completed' && <div className="p-3 bg-green-500/20 text-green-500 rounded-xl"><CheckCircle size={24} /></div>}
+                  {activeNode.status === 'failed' && <div className="p-3 bg-red-500/20 text-red-500 rounded-xl"><ShieldAlert size={24} /></div>}
+                  <div>
+                    <span className="text-xs font-bold uppercase tracking-widest text-gray-500">{activeNode.status} MODULE</span>
+                    <h2 className="text-2xl font-bold mt-1 line-clamp-2">{activeNode.title}</h2>
+                  </div>
                 </div>
-              </div>
-              
-              <button 
-                onClick={() => toggleComplete(activeVideo.id, activeVideo.completed)}
-                className={`flex items-center gap-2 px-6 py-3 rounded-lg font-medium transition-all ${
-                  activeVideo.completed 
-                  ? 'bg-green-600/20 text-green-500 border border-green-600/50 hover:bg-green-600/30' 
-                  : 'bg-blue-600 text-white hover:bg-blue-700'
-                }`}
-              >
-                {activeVideo.completed ? <CheckCircle size={20} /> : <Circle size={20} />}
-                {activeVideo.completed ? 'Completed' : 'Mark as Complete'}
-              </button>
-            </div>
-          </div>
 
-          {/* Playlist Checklist */}
-          <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden flex flex-col h-[600px]">
-            <div className="p-4 border-b border-gray-800 bg-gray-950/50 flex justify-between items-center">
-              <h3 className="font-semibold text-lg">Course Checklist</h3>
-              <span className="text-xs bg-blue-600/20 text-blue-400 px-2 py-1 rounded-full">{videos.length} videos</span>
-            </div>
-            
-            <div className="overflow-y-auto flex-1 p-2 space-y-1">
-              {videos.map((video, idx) => (
-                <button 
-                  key={video.id}
-                  onClick={() => setActiveVideo(video)}
-                  className={`w-full text-left p-3 rounded-lg flex gap-3 transition-colors ${
-                    activeVideo.id === video.id ? 'bg-blue-600/10 border border-blue-600/30' : 'hover:bg-gray-800 border border-transparent'
-                  }`}
-                >
-                  <div className="pt-1">
-                    {video.completed ? (
-                      <CheckCircle className="text-green-500" size={20} />
-                    ) : (
-                      <PlayCircle className={activeVideo.id === video.id ? 'text-blue-500' : 'text-gray-500'} size={20} />
+                {activeNode.status === 'locked' && (
+                  <div className="flex-1 flex flex-col items-center justify-center text-center p-6 bg-gray-950 rounded-xl border border-gray-800 mb-6">
+                    <Lock className="text-gray-600 mb-4" size={48} />
+                    <h3 className="text-lg font-bold text-white mb-2">Prerequisites Unfulfilled</h3>
+                    <p className="text-gray-400 text-sm">You must complete the parent modules connected to this node before you can unlock its content.</p>
+                  </div>
+                )}
+
+                {activeNode.status !== 'locked' && (
+                  <div className="flex-1 flex flex-col gap-4">
+                    <div className="bg-black aspect-video rounded-xl border border-gray-800 flex items-center justify-center text-gray-600">
+                       <PlayCircle size={40} className="mb-2" />
+                       <span className="sr-only">Video Player UI Placeholder</span>
+                    </div>
+                    <div className="bg-gray-950 p-4 rounded-xl border border-gray-800">
+                      <h4 className="font-bold text-white mb-2">Module Objectives</h4>
+                      <ul className="text-sm text-gray-400 space-y-2 list-disc list-inside">
+                        <li>Understand the core fundamentals</li>
+                        <li>Practice building an example project</li>
+                        <li>Pass the evaluation quiz to unlock the next node</li>
+                      </ul>
+                    </div>
+                    
+                    {activeNode.score !== null && activeNode.score !== undefined && (
+                      <div className="bg-gray-950 p-4 rounded-xl border border-gray-800 flex justify-between items-center">
+                        <span className="text-gray-400 font-bold text-sm">Previous Score</span>
+                        <span className={`font-bold text-xl ${activeNode.score >= 80 ? 'text-green-500' : 'text-red-500'}`}>{activeNode.score}%</span>
+                      </div>
                     )}
                   </div>
-                  <div>
-                    <p className={`font-medium text-sm ${activeVideo.id === video.id ? 'text-blue-400' : 'text-gray-200'}`}>
-                      {idx + 1}. {video.title}
-                    </p>
-                  </div>
-                </button>
-              ))}
+                )}
+
+                <div className="pt-6 border-t border-gray-800 mt-auto flex flex-col gap-3">
+                  {activeNode.status === 'active' || activeNode.status === 'failed' ? (
+                     <>
+                        <button 
+                          disabled={evaluating}
+                          onClick={() => handleEvaluateNode(90)} 
+                          className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-4 rounded-xl flex justify-center items-center gap-2 transition-colors disabled:opacity-50"
+                        >
+                          {evaluating ? <Loader2 className="animate-spin" /> : <><Trophy size={20} /> Pass Assessment (Score 90%)</>}
+                        </button>
+                        <button 
+                          disabled={evaluating}
+                          onClick={() => handleEvaluateNode(40)} 
+                          className="w-full bg-gray-800 hover:bg-red-900/50 text-gray-300 hover:text-red-400 font-bold py-3 rounded-xl flex justify-center items-center gap-2 transition-colors disabled:opacity-50"
+                        >
+                          {evaluating ? <Loader2 className="animate-spin" /> : "Fail Assessment (Score 40%)"}
+                        </button>
+                     </>
+                  ) : activeNode.status === 'completed' && (
+                     <button className="w-full bg-green-600/20 border border-green-500/50 text-green-500 font-bold py-4 rounded-xl flex justify-center items-center gap-2">
+                        <CheckCircle size={20} /> Module Conquered
+                     </button>
+                  )}
+                </div>
+
             </div>
-          </div>
+          )}
         </div>
-      )}
+      </div>
     </div>
   );
 }

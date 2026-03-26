@@ -8,19 +8,20 @@ import CustomNode from './CustomNode';
 interface FlowchartProps {
   nodes: Node[];
   edges: Edge[];
-  setNodes: React.Dispatch<React.SetStateAction<Node[]>>;
-  setEdges: React.Dispatch<React.SetStateAction<Edge[]>>;
+  setNodes?: React.Dispatch<React.SetStateAction<Node[]>>;
+  setEdges?: React.Dispatch<React.SetStateAction<Edge[]>>;
+  onNodeClick?: (event: React.MouseEvent, node: Node) => void;
 }
 
-export default function Flowchart({ nodes, edges, setNodes, setEdges }: FlowchartProps) {
+export default function Flowchart({ nodes, edges, setNodes, setEdges, onNodeClick }: FlowchartProps) {
   
   const onNodesChange = useCallback(
-    (changes: NodeChange[]) => setNodes((nds) => applyNodeChanges(changes, nds)),
+    (changes: NodeChange[]) => { if(setNodes) setNodes((nds) => applyNodeChanges(changes, nds)); },
     [setNodes]
   );
   
   const onEdgesChange = useCallback(
-    (changes: EdgeChange[]) => setEdges((eds) => applyEdgeChanges(changes, eds)),
+    (changes: EdgeChange[]) => { if(setEdges) setEdges((eds) => applyEdgeChanges(changes, eds)); },
     [setEdges]
   );
   
@@ -34,6 +35,7 @@ export default function Flowchart({ nodes, edges, setNodes, setEdges }: Flowchar
         nodeTypes={nodeTypes}
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
+        onNodeClick={onNodeClick}
         colorMode="dark"
         fitView
       >
