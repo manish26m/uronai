@@ -275,11 +275,12 @@ def generate_detailed_roadmap(req: WizardRequest, user=Depends(get_current_user)
 
     db_user = user_collection.find_one({"_id": ObjectId(user["id"])})
 
-    extra = f" Base the roadmap strictly on this YouTube video transcript: {transcript_snippet}" if transcript_snippet else ""
-    prompt = f"Create a highly detailed, step-by-step learning roadmap for '{req.goal}', designed to be completed in approximately '{req.timeframe}'. {extra} Output ONLY a raw JSON array of module objects. Format exactly as: [{{\"id\":\"1\",\"title\":\"Module Name\",\"description\":\"...\",\"depends_on\":[]}}]"
+    extra = f" Base the roadmap strictly and exclusively on this YouTube video transcript. Mirror its chapters and sections exactly without hallucinating external topics: {transcript_snippet}" if transcript_snippet else ""
+    
+    prompt = f"Create a highly detailed learning roadmap for '{req.goal}'. The timeframe is '{req.timeframe}'. YOU MUST ORGANIZE THIS INTO A STRICT TIMETABLE (e.g. prefix module titles with 'Week 1:', 'Day 1:', etc., evenly distributed across the timeframe). {extra} Output ONLY a raw JSON array of sequential module objects. Format exactly as: [{{\"id\":\"1\",\"title\":\"Week 1: Module Name\",\"description\":\"...\",\"depends_on\":[]}}]"
 
     try:
-        text = generate_gemini_content(prompt, db_user.get("gemini_api_key", ""))
+        text = generate_gemini_content(prompt, db_user.get("gemini_api_key", ""), "gemini-pro")
         text = text.replace("```json", "").replace("```", "").strip()
         s, e = text.find("["), text.rfind("]")
         if s != -1 and e != -1:
@@ -287,10 +288,12 @@ def generate_detailed_roadmap(req: WizardRequest, user=Depends(get_current_user)
             nodes, edges, y = [], [], 0
             for i, m in enumerate(modules):
                 nid = str(m.get("id", i + 1))
-                nodes.append({"id": nid, "type": "custom", "title": m.get("title", f"Module {nid}"), "description": m.get("description", ""), "status": "active" if i == 0 else "locked", "position": {"x": 300 + (i % 2) * 180, "y": y}, "transcript": transcript_snippet, "video_id": vid_id})
-                y += 160
-                for dep in m.get("depends_on", []):
-                    edges.append({"id": f"e{dep}-{nid}", "source": str(dep), "target": nid, "animated": True})
+                # Straight vertical center-aligned modern path (like Duolingo)
+                nodes.append({"id": nid, "type": "custom", "title": m.get("title", f"Module {nid}"), "description": m.get("description", ""), "status": "active" if i == 0 else "locked", "position": {"x": 400, "y": i * 160}, "transcript": transcript_snippet, "video_id": vid_id})
+                if i > 0:
+                    # Sequential edges mapping straight down
+                    prev_id = str(modules[i-1].get("id", i))
+                    edges.append({"id": f"e{prev_id}-{nid}", "source": prev_id, "target": nid, "animated": True})
             return {"nodes": nodes, "edges": edges, "title": req.goal}
     except HTTPException:
         raise
@@ -346,7 +349,7 @@ def generate_quiz(req: QuizRequest, user=Depends(get_current_user)):
     if req.transcript:
         context = f"You are a strict academic evaluator. Based STRICTLY on this specific video transcript and nothing else: {req.transcript[:5500]}. "
     else:
-        context = f"You are a strict academic evaluator. Based on the concept of '{req.topic}'. "
+        context = f"You are a strict academic evaluator. Based on the concept of '{req.subject}'. "
     
     prompt = f"{context}Generate exactly 4 extremely specific multiple choice questions. The questions must test unique facts explicitly mentioned in the text provided. Output ONLY a raw JSON array. Format: [{{\"id\":1,\"question\":\"...\",\"options\":[\"A\",\"B\",\"C\",\"D\"],\"answer\":\"A\",\"explanation\":\"...\"}}]"
 
