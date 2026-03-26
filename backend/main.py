@@ -1,498 +1,378 @@
-from fastapi import FastAPI, Depends, HTTPException
+from fastapi import FastAPI, HTTPException, Depends, status
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, Field
-from typing import List, Optional
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from pydantic import BaseModel, EmailStr, Field
+from typing import List, Optional, Any
 from bson.objectid import ObjectId
-import os
-import requests
-import re
-import json
+from passlib.context import CryptContext
+from jose import JWTError, jwt
+from datetime import datetime, timedelta
+import os, requests, re, json, uuid
 from dotenv import load_dotenv
 
 load_dotenv()
+from database import subject_collection, video_collection, db
 
-from database import subject_collection, video_collection
+# ─────────── Config ───────────
+HF_API_KEY  = os.getenv("HF_API_KEY")
+YT_API_KEY  = os.getenv("YT_API_KEY")
+JWT_SECRET  = os.getenv("JWT_SECRET", "super_secret")
+JWT_ALGO    = "HS256"
+JWT_EXPIRE  = 60 * 24 * 7  # 7 days in minutes
+ADMIN_EMAIL = os.getenv("ADMIN_EMAIL", "admin@uron.ai")
+ADMIN_PASS  = os.getenv("ADMIN_PASSWORD", "Wearebro@123")
 
-# API Keys
-HF_API_KEY = os.getenv("HF_API_KEY")
-YT_API_KEY = os.getenv("YT_API_KEY")
+user_collection = db["users"]
 
-app = FastAPI(title="AI Learning OS API")
+pwd_ctx = CryptContext(schemes=["bcrypt"], deprecated="auto")
+bearer  = HTTPBearer(auto_error=False)
 
-# Configure CORS
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+app = FastAPI(title="UronAI API — Next-Gen Adaptive Learning")
+app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
 
-# --------- Helper Functions ---------
-def parse_subject(doc):
-    return {
-        "id": str(doc["_id"]),
-        "title": doc.get("title", ""),
-        "description": doc.get("description"),
-        "progress_percentage": doc.get("progress_percentage", 0),
-        "nodes": doc.get("nodes", []),
-        "edges": doc.get("edges", []),
-        "xp": doc.get("xp", 0),
-        "level": doc.get("level", 1)
-    }
+# ─────────── Seed Admin ───────────
+def seed_admin():
+    if not user_collection.find_one({"email": ADMIN_EMAIL}):
+        user_collection.insert_one({
+            "email": ADMIN_EMAIL,
+            "name": "Admin",
+            "hashed_password": pwd_ctx.hash(ADMIN_PASS),
+            "role": "admin",
+            "avatar": None,
+            "created_at": datetime.utcnow().isoformat()
+        })
+seed_admin()
 
-def parse_video(doc):
-    return {
-        "id": str(doc["_id"]),
-        "subject_id": str(doc["subject_id"]),
-        "title": doc.get("title", ""),
-        "url": doc.get("url", ""),
-        "completed": doc.get("completed", False)
-    }
+# ─────────── Helpers ───────────
+def hash_password(p): return pwd_ctx.hash(p)
+def verify_password(plain, hashed): return pwd_ctx.verify(plain, hashed)
 
-# --------- Pydantic Models ---------
-class VideoBase(BaseModel):
-    title: str
-    url: str
-    completed: bool = False
+def create_token(data: dict):
+    payload = {**data, "exp": datetime.utcnow() + timedelta(minutes=JWT_EXPIRE)}
+    return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGO)
 
-class Video(VideoBase):
-    id: str
-    subject_id: str
+def parse_user(doc) -> dict:
+    return {"id": str(doc["_id"]), "email": doc.get("email",""), "name": doc.get("name",""), "role": doc.get("role","student"), "avatar": doc.get("avatar"), "created_at": doc.get("created_at","")}
+
+def parse_subject(doc) -> dict:
+    return {"id": str(doc["_id"]), "user_id": doc.get("user_id",""), "title": doc.get("title",""), "description": doc.get("description",""), "progress_percentage": doc.get("progress_percentage",0), "nodes": doc.get("nodes",[]), "edges": doc.get("edges",[]), "xp": doc.get("xp",0), "level": doc.get("level",1), "created_at": doc.get("created_at","")}
+
+def get_current_user(creds: HTTPAuthorizationCredentials = Depends(bearer)):
+    if not creds:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    try:
+        payload = jwt.decode(creds.credentials, JWT_SECRET, algorithms=[JWT_ALGO])
+        uid = payload.get("sub")
+        if not uid: raise HTTPException(status_code=401, detail="Invalid token")
+        doc = user_collection.find_one({"_id": ObjectId(uid)})
+        if not doc: raise HTTPException(status_code=401, detail="User not found")
+        return parse_user(doc)
+    except JWTError:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+def require_admin(user=Depends(get_current_user)):
+    if user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="Admin access required")
+    return user
+
+# ─────────── Pydantic Models ───────────
+class RegisterRequest(BaseModel):
+    email: str
+    password: str
+    name: str
+
+class LoginRequest(BaseModel):
+    email: str
+    password: str
+
+class GoogleAuthRequest(BaseModel):
+    email: str
+    name: str
+    avatar: Optional[str] = None
 
 class RoadmapNode(BaseModel):
     id: str
-    type: str = "learning"
+    type: str = "custom"
     title: str
     status: str = "locked"
     score: Optional[int] = None
-    url: Optional[str] = None
-    
+    position: Optional[dict] = None
+    transcript: Optional[str] = None
+
 class RoadmapEdge(BaseModel):
     id: str
     source: str
     target: str
+    animated: bool = True
 
 class SubjectBase(BaseModel):
     title: str
-    description: Optional[str] = None
-    progress_percentage: int = 0
-    nodes: List[RoadmapNode] = []
-    edges: List[RoadmapEdge] = []
+    description: Optional[str] = ""
+    nodes: List[Any] = []
+    edges: List[Any] = []
     xp: int = 0
     level: int = 1
-
-class SubjectCreate(SubjectBase):
-    pass
-
-class Subject(SubjectBase):
-    id: str
-
-class PlaylistImport(BaseModel):
-    title: str
-    playlist_url: str
-
-class FlowRequest(BaseModel):
-    topic: str
+    progress_percentage: int = 0
 
 class WizardRequest(BaseModel):
     goal: str
-    path: Optional[str] = None  # "fast" | "foundation" | "career"
+    path: Optional[str] = None
+    youtube_url: Optional[str] = None
 
 class QuizRequest(BaseModel):
     subject: str
+    transcript: Optional[str] = None
 
 class ChatRequest(BaseModel):
     message: str
     context: str
 
-# --------- Routes ---------
+# ─────────── ≡ Auth Routes ───────────
+
 @app.get("/")
-def read_root():
-    return {"message": "Welcome to AI Learning OS API (MongoDB Powered)"}
+def root(): return {"message": "UronAI API — Next-Gen Adaptive Learning Platform"}
+
+@app.post("/auth/register")
+def register(req: RegisterRequest):
+    if user_collection.find_one({"email": req.email}):
+        raise HTTPException(status_code=400, detail="Email already registered")
+    doc = {"email": req.email, "name": req.name, "hashed_password": hash_password(req.password), "role": "student", "avatar": None, "created_at": datetime.utcnow().isoformat()}
+    result = user_collection.insert_one(doc)
+    doc["_id"] = result.inserted_id
+    token = create_token({"sub": str(result.inserted_id), "role": "student"})
+    return {"token": token, "user": parse_user(doc)}
+
+@app.post("/auth/login")
+def login(req: LoginRequest):
+    doc = user_collection.find_one({"email": req.email})
+    if not doc or not verify_password(req.password, doc.get("hashed_password", "")):
+        raise HTTPException(status_code=401, detail="Invalid credentials")
+    token = create_token({"sub": str(doc["_id"]), "role": doc.get("role", "student")})
+    return {"token": token, "user": parse_user(doc)}
+
+@app.post("/auth/google")
+def google_auth(req: GoogleAuthRequest):
+    doc = user_collection.find_one({"email": req.email})
+    if not doc:
+        new_doc = {"email": req.email, "name": req.name, "hashed_password": "", "role": "student", "avatar": req.avatar, "created_at": datetime.utcnow().isoformat()}
+        result = user_collection.insert_one(new_doc)
+        new_doc["_id"] = result.inserted_id
+        doc = new_doc
+    token = create_token({"sub": str(doc["_id"]), "role": doc.get("role","student")})
+    return {"token": token, "user": parse_user(doc)}
+
+@app.get("/auth/me")
+def me(user=Depends(get_current_user)): return user
+
+# ─────────── ≡ Admin Routes ───────────
+
+@app.get("/admin/users")
+def admin_users(admin=Depends(require_admin)):
+    users = []
+    for u in user_collection.find({"role": {"$ne": "admin"}}):
+        u_data = parse_user(u)
+        u_data["subjects"] = [parse_subject(s) for s in subject_collection.find({"user_id": str(u["_id"])})]
+        u_data["total_xp"] = sum(s["xp"] for s in u_data["subjects"])
+        u_data["missions"] = len(u_data["subjects"])
+        users.append(u_data)
+    return users
+
+# ─────────── ≡ Subject Routes ───────────
+
+@app.post("/subjects/")
+def create_subject(subject: SubjectBase, user=Depends(get_current_user)):
+    doc = subject.model_dump()
+    doc["user_id"] = user["id"]
+    doc["created_at"] = datetime.utcnow().isoformat()
+    result = subject_collection.insert_one(doc)
+    doc["_id"] = result.inserted_id
+    return parse_subject(doc)
+
+@app.get("/subjects/")
+def list_subjects(user=Depends(get_current_user)):
+    return [parse_subject(d) for d in subject_collection.find({"user_id": user["id"]})]
+
+@app.get("/subjects/{subject_id}")
+def get_subject(subject_id: str, user=Depends(get_current_user)):
+    doc = subject_collection.find_one({"_id": ObjectId(subject_id), "user_id": user["id"]})
+    if not doc: raise HTTPException(status_code=404, detail="Not found")
+    return parse_subject(doc)
+
+@app.delete("/subjects/{subject_id}")
+def delete_subject(subject_id: str, user=Depends(get_current_user)):
+    res = subject_collection.delete_one({"_id": ObjectId(subject_id), "user_id": user["id"]})
+    if res.deleted_count == 0: raise HTTPException(status_code=404)
+    return {"message": "Deleted"}
+
+# ─────────── ≡ Wizard Routes ───────────
 
 @app.post("/subjects/wizard-paths")
-def wizard_paths(req: WizardRequest):
+def wizard_paths(req: WizardRequest, user=Depends(get_current_user)):
     headers = {"Authorization": f"Bearer {HF_API_KEY}", "Content-Type": "application/json"}
-    
+
     if req.path is None:
         # Step 1: Generate 3 path options
-        prompt = f"[INST] A student wants to learn: '{req.goal}'. Generate exactly 3 different learning paths. Output ONLY a raw JSON array, no markdown, no extra text. Format: [{{\"id\":\"fast\",\"name\":\"Fast Track ⚡\",\"description\":\"...\",\"duration\":\"...\",\"modules\":[\"topic1\",\"topic2\",\"topic3\",\"topic4\"]}},{{\"id\":\"foundation\",\"name\":\"Strong Foundation 🧠\",\"description\":\"...\",\"duration\":\"...\",\"modules\":[\"topic1\",\"topic2\",\"topic3\",\"topic4\",\"topic5\"]}},{{\"id\":\"career\",\"name\":\"Career Ready 💼\",\"description\":\"...\",\"duration\":\"...\",\"modules\":[\"topic1\",\"topic2\",\"topic3\",\"topic4\",\"topic5\"]}}] [/INST]"
+        prompt = f"[INST] A student wants to learn: '{req.goal}'. Generate exactly 3 learning paths as a raw JSON array with no markdown. Each object: {{\"id\":\"fast\"|\"foundation\"|\"career\",\"name\":\"...\",\"description\":\"...\",\"duration\":\"...\",\"modules\":[\"topic1\",\"topic2\"]}} [/INST]"
         payload = {"inputs": prompt, "parameters": {"max_new_tokens": 600, "return_full_text": False, "temperature": 0.3}}
         try:
             res = requests.post("https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.2", headers=headers, json=payload, timeout=18)
             if res.status_code == 200:
-                text = res.json()[0]['generated_text'].strip()
-                start = text.find('['); end = text.rfind(']')
-                if start != -1 and end != -1:
-                    paths = json.loads(text[start:end+1])
-                    return {"paths": paths}
-        except Exception as e:
-            print(f"Wizard Error: {e}")
-        # Fallback
+                text = res.json()[0]["generated_text"].strip()
+                s, e = text.find("["), text.rfind("]")
+                if s != -1 and e != -1:
+                    return {"paths": json.loads(text[s:e+1])}
+        except Exception as ex:
+            print(f"Wizard Error: {ex}")
+        # Fallback paths
         return {"paths": [
-            {"id": "fast", "name": "Fast Track ⚡", "description": "Quick and focused, skip the basics.", "duration": "3 weeks", "modules": [req.goal + " Basics", "Core Concepts", "Projects", "Advanced"]},
-            {"id": "foundation", "name": "Strong Foundation 🧠", "description": "Deep knowledge, from ground up.", "duration": "8 weeks", "modules": [req.goal + " Intro", "Fundamentals", "Theory", "Intermediate", "Projects", "Advanced"]},
-            {"id": "career", "name": "Career Ready 💼", "description": "Industry tools and deployment skills.", "duration": "6 weeks", "modules": [req.goal + " Essentials", "Tools & Ecosystem", "Real Projects", "Deployment", "Portfolio"]},
+            {"id": "fast", "name": "Fast Track ⚡", "description": "Get productive fast. Skip theory, jump to core concepts and projects.", "duration": "2–3 weeks", "modules": [f"{req.goal} Crash Course", "Core Patterns", "Mini Project", "Final Challenge"]},
+            {"id": "foundation", "name": "Strong Foundation 🧠", "description": "Learn it deeply and properly, from first principles.", "duration": "6–8 weeks", "modules": ["Introduction & History", "Core Fundamentals", "Theory Deep Dive", "Intermediate Patterns", "Advanced Techniques", "Capstone Project"]},
+            {"id": "career", "name": "Industry Ready 💼", "description": "Job-focused: real tools, deployment, and portfolio building.", "duration": "4–6 weeks", "modules": [f"{req.goal} Essentials", "Real-World Tooling", "Industry Project", "Deployment & DevOps", "Portfolio Building"]},
         ]}
     else:
-        # Step 2: Generate graph for chosen path
-        path_name = {"fast": "Fast Track", "foundation": "Strong Foundation", "career": "Career Ready"}.get(req.path, req.path)
-        prompt = f"[INST] Create a learning roadmap for '{req.goal}' using the '{path_name}' approach. Output ONLY a raw JSON array of module objects, no markdown. Format: [{{\"id\":\"1\",\"title\":\"Module Title\",\"type\":\"lesson\",\"depends_on\":[]}},...] Make 5 to 7 modules with proper dependency chains. [/INST]"
+        # Step 2: Build graph for chosen path
+        path_name = {"fast": "Fast Track", "foundation": "Strong Foundation", "career": "Industry Ready"}.get(req.path, req.path)
+
+        # If user provided YouTube URL, extract transcript for deeper module naming
+        transcript_snippet = ""
+        if req.youtube_url:
+            try:
+                from youtube_transcript_api import YouTubeTranscriptApi
+                vid_id_match = re.search(r"(?:v=|youtu\.be/)([a-zA-Z0-9_-]{11})", req.youtube_url)
+                if vid_id_match:
+                    transcript_data = YouTubeTranscriptApi.get_transcript(vid_id_match.group(1))
+                    full_text = " ".join([t["text"] for t in transcript_data])
+                    transcript_snippet = full_text[:1500]
+            except Exception as ex:
+                print(f"Transcript error: {ex}")
+
+        extra = f" Base the modules on this video transcript: {transcript_snippet[:800]}" if transcript_snippet else ""
+        prompt = f"[INST] Create a step-by-step learning roadmap for '{req.goal}' using the '{path_name}' approach.{extra} Output ONLY a raw JSON array of module objects. Format: [{{\"id\":\"1\",\"title\":\"Module Name\",\"depends_on\":[]}},...] Make 5–7 modules with dependency chains. [/INST]"
         payload = {"inputs": prompt, "parameters": {"max_new_tokens": 700, "return_full_text": False, "temperature": 0.3}}
         try:
             res = requests.post("https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.2", headers=headers, json=payload, timeout=18)
             if res.status_code == 200:
-                text = res.json()[0]['generated_text'].strip()
-                start = text.find('['); end = text.rfind(']')
-                if start != -1 and end != -1:
-                    modules = json.loads(text[start:end+1])
+                text = res.json()[0]["generated_text"].strip()
+                s, e = text.find("["), text.rfind("]")
+                if s != -1 and e != -1:
+                    modules = json.loads(text[s:e+1])
                     nodes, edges, y = [], [], 0
                     for i, m in enumerate(modules):
-                        nid = str(m.get("id", i+1))
-                        nodes.append({"id": nid, "type": "custom", "title": m.get("title", f"Module {nid}"), "status": "active" if i == 0 else "locked", "position": {"x": 300 + (i % 2) * 180, "y": y}})
+                        nid = str(m.get("id", i + 1))
+                        nodes.append({"id": nid, "type": "custom", "title": m.get("title", f"Module {nid}"), "status": "active" if i == 0 else "locked", "position": {"x": 300 + (i % 2) * 180, "y": y}, "transcript": transcript_snippet if i == 0 else ""})
                         y += 160
                         for dep in m.get("depends_on", []):
                             edges.append({"id": f"e{dep}-{nid}", "source": str(dep), "target": nid, "animated": True})
                     return {"nodes": nodes, "edges": edges, "title": f"{req.goal} — {path_name}"}
-        except Exception as e:
-            print(f"Wizard Graph Error: {e}")
+        except Exception as ex:
+            print(f"Wizard Graph Error: {ex}")
         # Fallback
-        topics = ["Introduction", "Core Concepts", "Practice", "Advanced", "Final Project"]
-        nodes = [{"id": str(i+1), "type": "custom", "title": f"{req.goal}: {t}", "status": "active" if i == 0 else "locked", "position": {"x": 300, "y": i*160}} for i, t in enumerate(topics)]
+        topics = ["Introduction", "Core Concepts", "Hands-On Practice", "Advanced Topics", "Final Project"]
+        nodes = [{"id": str(i+1), "type": "custom", "title": f"{req.goal}: {t}", "status": "active" if i == 0 else "locked", "position": {"x": 300, "y": i*160}, "transcript": transcript_snippet if i == 0 else ""} for i, t in enumerate(topics)]
         edges = [{"id": f"e{i}-{i+1}", "source": str(i), "target": str(i+1), "animated": True} for i in range(1, len(topics))]
         return {"nodes": nodes, "edges": edges, "title": f"{req.goal} — {path_name}"}
 
-
-@app.post("/subjects/", response_model=Subject)
-def create_subject(subject: SubjectCreate):
-    new_doc = subject.model_dump()
-    result = subject_collection.insert_one(new_doc)
-    new_doc["_id"] = result.inserted_id
-    return parse_subject(new_doc)
-
-@app.get("/subjects/", response_model=List[Subject])
-def read_subjects(skip: int = 0, limit: int = 100):
-    cursor = subject_collection.find().skip(skip).limit(limit)
-    return [parse_subject(doc) for doc in cursor]
-
-@app.get("/subjects/{subject_id}", response_model=Subject)
-def read_subject(subject_id: str):
-    doc = subject_collection.find_one({"_id": ObjectId(subject_id)})
-    if not doc:
-        raise HTTPException(status_code=404, detail="Subject not found")
-    return parse_subject(doc)
-
-@app.post("/subjects/import-playlist", response_model=Subject)
-def import_playlist(data: PlaylistImport):
-    match = re.search(r'list=([\w-]+)', data.playlist_url)
-    if not match:
-        raise HTTPException(status_code=400, detail="Invalid YouTube playlist URL")
-    
-    playlist_id = match.group(1)
-    
-    yt_res = requests.get(f"https://youtube.googleapis.com/youtube/v3/playlistItems?part=snippet&maxResults=50&playlistId={playlist_id}&key={YT_API_KEY}")
-    if yt_res.status_code != 200:
-        raise HTTPException(status_code=400, detail="Failed to fetch playlist from YouTube")
-        
-    yt_data = yt_res.json()
-    items = yt_data.get("items", [])
-    
-    if not items:
-        raise HTTPException(status_code=400, detail="Playlist is empty or private")
-    
-    new_sub = {"title": data.title, "description": "Imported from YouTube Playlist", "progress_percentage": 0}
-    result = subject_collection.insert_one(new_sub)
-    subject_id_str = str(result.inserted_id)
-    new_sub["_id"] = result.inserted_id
-    
-    videos_to_insert = []
-    for item in items:
-        snippet = item.get("snippet", {})
-        vid_title = snippet.get("title", "Unknown Title")
-        vid_id = snippet.get("resourceId", {}).get("videoId", "")
-        
-        if vid_id and vid_title != "Private video":
-            videos_to_insert.append({
-                "subject_id": subject_id_str, # Store as string constraint for PyMongo relational match
-                "title": vid_title,
-                "url": f"https://youtube.com/watch?v={vid_id}",
-                "completed": False
-            })
-            
-    if videos_to_insert:
-        video_collection.insert_many(videos_to_insert)
-        
-    return parse_subject(new_sub)
-
-@app.post("/subjects/{subject_id}/videos/", response_model=Video)
-def add_video_to_subject(subject_id: str, video: VideoBase):
-    doc = subject_collection.find_one({"_id": ObjectId(subject_id)})
-    if not doc:
-        raise HTTPException(status_code=404, detail="Subject not found")
-    
-    new_vid = video.model_dump()
-    new_vid["subject_id"] = subject_id
-    result = video_collection.insert_one(new_vid)
-    new_vid["_id"] = result.inserted_id
-    return parse_video(new_vid)
-
-@app.delete("/subjects/{subject_id}")
-def delete_subject(subject_id: str):
-    res = subject_collection.delete_one({"_id": ObjectId(subject_id)})
-    if res.deleted_count == 0:
-        raise HTTPException(status_code=404)
-    return {"message": "Deleted"}
-
-@app.get("/subjects/{subject_id}/videos/", response_model=List[Video])
-def get_subject_videos(subject_id: str):
-    cursor = video_collection.find({"subject_id": subject_id})
-    return [parse_video(doc) for doc in cursor]
-
-@app.put("/videos/{video_id}/complete", response_model=Video)
-def mark_video_complete(video_id: str, completed: bool):
-    doc = video_collection.find_one({"_id": ObjectId(video_id)})
-    if not doc:
-        raise HTTPException(status_code=404, detail="Video not found")
-        
-    video_collection.update_one({"_id": ObjectId(video_id)}, {"$set": {"completed": completed}})
-    doc["completed"] = completed
-    
-    # Recalculate progress using count_documents
-    sub_id = doc["subject_id"]
-    total = video_collection.count_documents({"subject_id": sub_id})
-    completed_count = video_collection.count_documents({"subject_id": sub_id, "completed": True})
-    
-    if total > 0:
-        new_prog = int((completed_count / total) * 100)
-        subject_collection.update_one({"_id": ObjectId(sub_id)}, {"$set": {"progress_percentage": new_prog}})
-        
-    return parse_video(doc)
-
-@app.post("/subjects/generate-flow")
-def generate_flow(request: FlowRequest):
-    headers = {"Authorization": f"Bearer {HF_API_KEY}", "Content-Type": "application/json"}
-    prompt = f"[INST] You are an expert AI Curriculum architect. Create a 4-step learning roadmap for {request.topic}. Strictly output raw JSON with a 'modules' array. Each module must have 'id' (string '1', '2', etc), 'title', and 'depends_on' (array of parent string ids). No other text. [/INST]"
-    
-    payload = {
-        "inputs": prompt,
-        "parameters": {"max_new_tokens": 800, "return_full_text": False, "temperature": 0.4}
-    }
-    
-    try:
-        res = requests.post("https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.2", headers=headers, json=payload, timeout=20)
-        if res.status_code == 200:
-            text = res.json()[0]['generated_text'].strip()
-            if text.startswith("```json"): text = text[7:]
-            if text.startswith("```"): text = text[3:]
-            if text.endswith("```"): text = text[:-3]
-            
-            match = re.search(r'\{.*\}', text.strip(), re.DOTALL)
-            if match:
-                data = json.loads(match.group(0))
-                modules = data.get("modules", [])
-                
-                nodes = []
-                edges = []
-                y_pos = 0
-                for idx, m in enumerate(modules):
-                    node_id = str(m.get("id", idx+1))
-                    nodes.append({
-                        "id": node_id,
-                        "type": "custom",
-                        "position": {"x": 350 + (idx % 2 * 100), "y": y_pos},
-                        "data": {"label": m.get("title", f"Module {node_id}"), "isRoot": idx == 0}
-                    })
-                    y_pos += 150
-                    
-                    for dep in m.get("depends_on", []):
-                        edges.append({
-                            "id": f"e{dep}-{node_id}",
-                            "source": str(dep),
-                            "target": node_id,
-                            "animated": True
-                        })
-                return {"nodes": nodes, "edges": edges}
-    except Exception as e:
-        print(f"HF Flow Error: {e}")
-        pass
-
-    # Fallback mock
-    return {
-        "nodes": [
-            {"id": "1", "type": "custom", "position": {"x": 350, "y": 0}, "data": {"label": f"Introduction to {request.topic}", "isRoot": True}},
-            {"id": "2", "type": "custom", "position": {"x": 250, "y": 150}, "data": {"label": "Core Fundamentals", "isRoot": False}},
-            {"id": "3", "type": "custom", "position": {"x": 450, "y": 150}, "data": {"label": "Advanced Techniques", "isRoot": False}}
-        ],
-        "edges": [
-            {"id": "e1-2", "source": "1", "target": "2", "animated": True},
-            {"id": "e1-3", "source": "1", "target": "3", "animated": True}
-        ]
-    }
+# ─────────── ≡ Evaluate Node (Adaptive Engine) ───────────
 
 @app.post("/subjects/evaluate-node/{subject_id}/{node_id}")
-def evaluate_node(subject_id: str, node_id: str, score: int):
-    doc = subject_collection.find_one({"_id": ObjectId(subject_id)})
+def evaluate_node(subject_id: str, node_id: str, score: int, user=Depends(get_current_user)):
+    doc = subject_collection.find_one({"_id": ObjectId(subject_id), "user_id": user["id"]})
     if not doc: raise HTTPException(status_code=404)
-    
-    nodes = doc.get("nodes", [])
-    edges = doc.get("edges", [])
-    
-    current_node = next((n for n in nodes if n["id"] == node_id), None)
-    if not current_node: raise HTTPException(status_code=404)
-    
-    current_node["score"] = score
-    doc["xp"] = doc.get("xp", 0) + score
-    
+    nodes, edges = doc.get("nodes", []), doc.get("edges", [])
+    node = next((n for n in nodes if n["id"] == node_id), None)
+    if not node: raise HTTPException(status_code=404)
+
+    node["score"] = score
+    xp = doc.get("xp", 0)
+
     if score < 50:
-        current_node["status"] = "failed"
-        
-        # Graph Restructuring: Intelligent AI Sub-Topic Injection
-        import uuid
-        new_node_1_id = str(uuid.uuid4())[:8]
-        new_node_2_id = str(uuid.uuid4())[:8]
-        
-        nodes.append({
-            "id": new_node_1_id,
-            "type": "assessment",
-            "title": f"Review: {current_node['title']} Fundamentals",
-            "status": "active"
-        })
-        nodes.append({
-            "id": new_node_2_id,
-            "type": "learning",
-            "title": f"Practice Drill: {current_node['title']}",
-            "status": "locked"
-        })
-        
-        # Connect current node -> review -> drill -> continue
-        edges.append({"id": f"e-{node_id}-{new_node_1_id}", "source": node_id, "target": new_node_1_id})
-        edges.append({"id": f"e-{new_node_1_id}-{new_node_2_id}", "source": new_node_1_id, "target": new_node_2_id})
-        
-        doc["xp"] -= 10 # small penalty
-    elif score >= 80:
-        current_node["status"] = "completed"
-        doc["xp"] += 50 
-        
-        children_ids = [e["target"] for e in edges if e["source"] == node_id]
-        for n in nodes:
-            if n["id"] in children_ids:
-                n["status"] = "active"
+        node["status"] = "failed"
+        xp = max(0, xp - 10)
+        # Inject 2 remedial nodes
+        r1, r2 = str(uuid.uuid4())[:8], str(uuid.uuid4())[:8]
+        last_pos = node.get("position", {"x": 300, "y": 0})
+        nodes.append({"id": r1, "type": "custom", "title": f"📖 Review: {node['title']} Fundamentals", "status": "active", "position": {"x": last_pos["x"] - 100, "y": last_pos["y"] + 180}})
+        nodes.append({"id": r2, "type": "custom", "title": f"✏️ Practice: {node['title']} Drills", "status": "locked", "position": {"x": last_pos["x"] + 100, "y": last_pos["y"] + 360}})
+        edges.append({"id": f"e{node_id}-{r1}", "source": node_id, "target": r1, "animated": True})
+        edges.append({"id": f"e{r1}-{r2}", "source": r1, "target": r2, "animated": True})
     else:
-        current_node["status"] = "completed"
-        children_ids = [e["target"] for e in edges if e["source"] == node_id]
+        node["status"] = "completed"
+        xp += score + (50 if score >= 80 else 0)
         for n in nodes:
-            if n["id"] in children_ids:
+            if n["id"] in [e["target"] for e in edges if e["source"] == node_id]:
                 n["status"] = "active"
-                
+
     total = len(nodes)
-    comp = len([n for n in nodes if n["status"] == "completed"])
-    doc["progress_percentage"] = int((comp / total) * 100) if total > 0 else 0
-    
-    subject_collection.update_one(
-        {"_id": ObjectId(subject_id)}, 
-        {"$set": {
-            "nodes": nodes, 
-            "edges": edges, 
-            "xp": max(0, doc["xp"]), 
-            "progress_percentage": doc["progress_percentage"]
-        }}
-    )
-    
+    completed = len([n for n in nodes if n.get("status") == "completed"])
+    progress = int((completed / total) * 100) if total > 0 else 0
+    level = max(1, xp // 200 + 1)
+
+    subject_collection.update_one({"_id": ObjectId(subject_id)}, {"$set": {"nodes": nodes, "edges": edges, "xp": xp, "level": level, "progress_percentage": progress}})
+    doc.update({"nodes": nodes, "edges": edges, "xp": xp, "level": level, "progress_percentage": progress})
     return parse_subject(doc)
 
+# ─────────── ≡ Quiz (Transcript-Powered) ───────────
+
 @app.post("/quizzes/generate")
-def generate_quiz(request: QuizRequest):
+def generate_quiz(req: QuizRequest):
     headers = {"Authorization": f"Bearer {HF_API_KEY}", "Content-Type": "application/json"}
-    prompt = f"[INST] Generate exactly 2 multiple choice educational questions about {request.subject}. You MUST output strictly a JSON Array of exactly 2 objects. Do NOT use markdown. Do NOT use code blocks. Just output the raw array starting with [ and ending with ]. Example: [{{\"id\": 1, \"question\": \"What?\", \"options\": [\"opt1\", \"opt2\", \"opt3\", \"opt4\"], \"answer\": \"opt1\", \"explanation\": \"Because\"}}] [/INST]"
-    
-    payload = {
-        "inputs": prompt,
-        "parameters": {"max_new_tokens": 800, "return_full_text": False, "temperature": 0.3}
-    }
-    
+    if req.transcript:
+        context = f"Based on this content: {req.transcript[:1200]}. "
+        prompt = f"[INST] {context}Generate 3 multiple choice questions that test understanding of exactly what was taught. Output ONLY a raw JSON array, no markdown. Format: [{{\"id\":1,\"question\":\"...\",\"options\":[\"A\",\"B\",\"C\",\"D\"],\"answer\":\"A\",\"explanation\":\"...\"}},...] [/INST]"
+    else:
+        prompt = f"[INST] Generate 3 multiple choice educational questions about {req.subject}. Output ONLY a raw JSON array, no markdown. Format: [{{\"id\":1,\"question\":\"...\",\"options\":[\"A\",\"B\",\"C\",\"D\"],\"answer\":\"A\",\"explanation\":\"...\"}},...] [/INST]"
+
+    payload = {"inputs": prompt, "parameters": {"max_new_tokens": 900, "return_full_text": False, "temperature": 0.3}}
     try:
-        res = requests.post("https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.2", headers=headers, json=payload, timeout=15)
+        res = requests.post("https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.2", headers=headers, json=payload, timeout=18)
         if res.status_code == 200:
-            text = res.json()[0]['generated_text'].strip()
-            
-            # Extract array from Mistral's unpredictable output
-            start_idx = text.find('[')
-            end_idx = text.rfind(']')
-            if start_idx != -1 and end_idx != -1:
-                clean_json = text[start_idx:end_idx+1]
-                parsed = json.loads(clean_json)
-                return {"subject": request.subject, "questions": parsed}
-    except Exception as e:
-        print(f"HF Quiz Error: {e}")
-        pass
+            text = res.json()[0]["generated_text"].strip()
+            s, e = text.find("["), text.rfind("]")
+            if s != -1 and e != -1:
+                return {"questions": json.loads(text[s:e+1])}
+    except Exception as ex:
+        print(f"Quiz error: {ex}")
+    return {"questions": [
+        {"id": 1, "question": f"What is the main purpose of {req.subject}?", "options": ["To solve problems efficiently", "To increase complexity", "To slow down programs", "None of the above"], "answer": "To solve problems efficiently", "explanation": f"{req.subject} is designed to help solve real-world problems efficiently."},
+        {"id": 2, "question": f"Which concept is central to {req.subject}?", "options": ["Abstraction", "Randomness", "Hardcoding", "Manual execution"], "answer": "Abstraction", "explanation": "Abstraction is a fundamental concept in most programming and technology topics."},
+    ]}
 
-    return {
-        "subject": request.subject,
-        "questions": [
-            {
-                "id": 1,
-                "question": f"What is the main advantage of using {request.subject}?",
-                "options": ["Speed", "Flexibility", "Security", "All of the above"],
-                "answer": "All of the above",
-                "explanation": f"{request.subject} is known for providing an encompassing set of features."
-            },
-            {
-                "id": 2,
-                "question": "Which concept represents the core foundation of this topic?",
-                "options": ["Modularity", "Coupling", "Hardcoding", "Repetition"],
-                "answer": "Modularity",
-                "explanation": "Modularity allows code to be reusable and cleaner."
-            }
-        ]
-    }
+# ─────────── ≡ YouTube Transcript ───────────
 
-@app.get("/mentor/advice")
-def get_mentor_advice(user_id: int = 1):
-    return {
-        "daily_plan": ["Review Python OOP (45 mins)", "Complete React Hooks (60 mins)", "SQL Joins Quiz (15 mins)"],
-        "weakness_detection": "You are weak in Object-Oriented Programming (OOP). Practice classes and inheritance before moving ahead.",
-        "next_step": "Take the OOP fundamentals quiz."
-    }
-
-@app.get("/careers/matching")
-def get_career_matches(user_id: int = 1):
-    return [
-        { "id": 1, "role": "Python Developer", "readiness": 85, "missing_skills": ["FastAPI", "Docker"], "growth_roadmap": "Focus on backend fundamentals and containerization." },
-        { "id": 2, "role": "AI Engineer", "readiness": 40, "missing_skills": ["Machine Learning", "PyTorch"], "growth_roadmap": "Complete the ML and Deep Learning modules." },
-        { "id": 3, "role": "ML Engineer", "readiness": 20, "missing_skills": ["PyTorch", "Calculus", "ML Ops"], "growth_roadmap": "Start with mathematical foundations before approaching Deep Learning." }
-    ]
+@app.get("/youtube/transcript")
+def get_transcript(video_id: str):
+    try:
+        from youtube_transcript_api import YouTubeTranscriptApi
+        data = YouTubeTranscriptApi.get_transcript(video_id)
+        text = " ".join([t["text"] for t in data])
+        return {"transcript": text, "length": len(text)}
+    except Exception as ex:
+        return {"transcript": "", "error": str(ex)}
 
 @app.get("/youtube/search")
 def search_youtube(q: str):
     try:
-        res = requests.get(f"https://youtube.googleapis.com/youtube/v3/search?part=snippet&maxResults=1&q={q}&type=video&key={YT_API_KEY}", timeout=5)
+        res = requests.get(f"https://youtube.googleapis.com/youtube/v3/search?part=snippet&maxResults=1&q={q}&type=video&key={YT_API_KEY}", timeout=6)
         if res.status_code == 200 and res.json().get("items"):
-            return {"video_id": res.json()["items"][0]["id"]["videoId"]}
+            item = res.json()["items"][0]
+            return {"video_id": item["id"]["videoId"], "title": item["snippet"]["title"], "thumbnail": item["snippet"]["thumbnails"]["medium"]["url"]}
     except Exception:
         pass
-    return {"video_id": "kqtD5dpn9C8"} # Fallback
+    return {"video_id": "kqtD5dpn9C8", "title": "Tutorial", "thumbnail": ""}
+
+# ─────────── ≡ AI Tutor Chat ───────────
 
 @app.post("/mentor/chat")
 def mentor_chat(req: ChatRequest):
     headers = {"Authorization": f"Bearer {HF_API_KEY}", "Content-Type": "application/json"}
-    prompt = f"[INST] You are an expert AI tutor helping a student deeply understand a specific topic. The student is currently studying the module: '{req.context}'. The student asks: '{req.message}'. Explain it simply, directly, and concisely in 1 to 2 short paragraphs without any external links or markdown formatting. [/INST]"
-    payload = {"inputs": prompt, "parameters": {"max_new_tokens": 300, "temperature": 0.4}}
+    prompt = f"[INST] You are an expert AI tutor. The student is studying: '{req.context}'. They ask: '{req.message}'. Give a concise, clear explanation in 1-2 paragraphs. No markdown. [/INST]"
+    payload = {"inputs": prompt, "parameters": {"max_new_tokens": 350, "return_full_text": False, "temperature": 0.4}}
     try:
-        res = requests.post("https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.2", headers=headers, json=payload, timeout=12)
+        res = requests.post("https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.2", headers=headers, json=payload, timeout=14)
         if res.status_code == 200:
-            text = res.json()[0]['generated_text'].strip()
-            if "[/INST]" in text:
-                text = text.split("[/INST]")[-1].strip()
+            text = res.json()[0]["generated_text"].strip()
+            if "[/INST]" in text: text = text.split("[/INST]")[-1].strip()
             return {"reply": text}
     except Exception:
         pass
-    return {"reply": "I'm currently experiencing high API latency with Hugging Face. Please consult the embedded video content above, or try asking your question again shortly!"}
-
-@app.get("/certifications")
-def get_certifications(user_id: int = 1):
-    return [
-        { "id": 1, "provider": "AWS", "name": "AWS Certified Cloud Practitioner", "timeline": "3 weeks", "match": 75 },
-        { "id": 2, "provider": "Google", "name": "Google Data Analytics Professional Certificate", "timeline": "2 months", "match": 90 },
-        { "id": 3, "provider": "Microsoft", "name": "Azure Fundamentals (AZ-900)", "timeline": "4 weeks", "match": 60 }
-    ]
+    return {"reply": "I'm having trouble connecting to the AI right now. Please try asking again in a moment!"}
