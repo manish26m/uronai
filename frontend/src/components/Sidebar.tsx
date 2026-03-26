@@ -3,11 +3,12 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
-import { LayoutDashboard, Map, Brain, LogOut, Shield, User, ChevronRight, Sparkles } from "lucide-react";
+import { LayoutDashboard, Map, Brain, LogOut, Shield, User, ChevronRight, Sparkles, Settings } from "lucide-react";
 
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/subjects", label: "Missions",   icon: Map },
+  { href: "/settings", label: "Settings",   icon: Settings },
 ];
 
 export default function Sidebar() {

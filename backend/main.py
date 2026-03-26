@@ -9,13 +9,14 @@ from jose import JWTError, jwt
 from datetime import datetime, timedelta
 import os, requests, re, json, uuid
 from dotenv import load_dotenv
+import google.generativeai as genai
 
 load_dotenv()
 from database import subject_collection, video_collection, db
 
 # ─────────── Config ───────────
-HF_API_KEY  = os.getenv("HF_API_KEY")
-YT_API_KEY  = os.getenv("YT_API_KEY")
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
+YT_API_KEY  = os.getenv("YT_API_KEY", "")
 JWT_SECRET  = os.getenv("JWT_SECRET", "super_secret")
 JWT_ALGO    = "HS256"
 JWT_EXPIRE  = 60 * 24 * 7  # 7 days in minutes
@@ -57,10 +58,16 @@ def create_token(data: dict):
     return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGO)
 
 def parse_user(doc) -> dict:
-    return {"id": str(doc["_id"]), "email": doc.get("email",""), "name": doc.get("name",""), "role": doc.get("role","student"), "avatar": doc.get("avatar"), "created_at": doc.get("created_at","")}
+    return {"id": str(doc["_id"]), "email": doc.get("email",""), "name": doc.get("name",""), "role": doc.get("role","student"), "avatar": doc.get("avatar"), "gemini_api_key": doc.get("gemini_api_key", ""), "created_at": doc.get("created_at","")}
 
 def parse_subject(doc) -> dict:
     return {"id": str(doc["_id"]), "user_id": doc.get("user_id",""), "title": doc.get("title",""), "description": doc.get("description",""), "progress_percentage": doc.get("progress_percentage",0), "nodes": doc.get("nodes",[]), "edges": doc.get("edges",[]), "xp": doc.get("xp",0), "level": doc.get("level",1), "created_at": doc.get("created_at","")}
+
+def get_gemini_model(user_api_key: str = "", model_name: str = "gemini-1.5-flash"):
+    key = user_api_key if user_api_key else GEMINI_API_KEY
+    if not key: raise HTTPException(status_code=500, detail="No Gemini API Key found")
+    genai.configure(api_key=key)
+    return genai.GenerativeModel(model_name)
 
 def get_current_user(creds: HTTPAuthorizationCredentials = Depends(bearer)):
     if not creds:
@@ -121,7 +128,7 @@ class SubjectBase(BaseModel):
 
 class WizardRequest(BaseModel):
     goal: str
-    path: Optional[str] = None
+    timeframe: Optional[str] = "4 weeks"
     youtube_url: Optional[str] = None
 
 class QuizRequest(BaseModel):
@@ -131,6 +138,9 @@ class QuizRequest(BaseModel):
 class ChatRequest(BaseModel):
     message: str
     context: str
+
+class ApiKeyRequest(BaseModel):
+    api_key: str
 
 # ─────────── ≡ Auth Routes ───────────
 
@@ -159,7 +169,7 @@ def login(req: LoginRequest):
 def google_auth(req: GoogleAuthRequest):
     doc = user_collection.find_one({"email": req.email})
     if not doc:
-        new_doc = {"email": req.email, "name": req.name, "hashed_password": "", "role": "student", "avatar": req.avatar, "created_at": datetime.utcnow().isoformat()}
+        new_doc = {"email": req.email, "name": req.name, "hashed_password": "", "role": "student", "avatar": req.avatar, "gemini_api_key": "", "created_at": datetime.utcnow().isoformat()}
         result = user_collection.insert_one(new_doc)
         new_doc["_id"] = result.inserted_id
         doc = new_doc
@@ -168,6 +178,11 @@ def google_auth(req: GoogleAuthRequest):
 
 @app.get("/auth/me")
 def me(user=Depends(get_current_user)): return user
+
+@app.post("/auth/api-key")
+def save_api_key(req: ApiKeyRequest, user=Depends(get_current_user)):
+    user_collection.update_one({"_id": ObjectId(user["id"])}, {"$set": {"gemini_api_key": req.api_key}})
+    return {"message": "API Key saved successfully"}
 
 # ─────────── ≡ Admin Routes ───────────
 
@@ -209,73 +224,46 @@ def delete_subject(subject_id: str, user=Depends(get_current_user)):
     if res.deleted_count == 0: raise HTTPException(status_code=404)
     return {"message": "Deleted"}
 
-# ─────────── ≡ Wizard Routes ───────────
+# ─────────── ≡ Roadmap Generator (Gemini) ───────────
 
-@app.post("/subjects/wizard-paths")
-def wizard_paths(req: WizardRequest, user=Depends(get_current_user)):
-    headers = {"Authorization": f"Bearer {HF_API_KEY}", "Content-Type": "application/json"}
-
-    if req.path is None:
-        # Step 1: Generate 3 path options
-        prompt = f"[INST] A student wants to learn: '{req.goal}'. Generate exactly 3 learning paths as a raw JSON array with no markdown. Each object: {{\"id\":\"fast\"|\"foundation\"|\"career\",\"name\":\"...\",\"description\":\"...\",\"duration\":\"...\",\"modules\":[\"topic1\",\"topic2\"]}} [/INST]"
-        payload = {"inputs": prompt, "parameters": {"max_new_tokens": 600, "return_full_text": False, "temperature": 0.3}}
+@app.post("/subjects/generate-detailed")
+def generate_detailed_roadmap(req: WizardRequest, user=Depends(get_current_user)):
+    # 1. Extract YouTube transcript if provided
+    transcript_snippet = ""
+    if req.youtube_url:
         try:
-            res = requests.post("https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.2", headers=headers, json=payload, timeout=18)
-            if res.status_code == 200:
-                text = res.json()[0]["generated_text"].strip()
-                s, e = text.find("["), text.rfind("]")
-                if s != -1 and e != -1:
-                    return {"paths": json.loads(text[s:e+1])}
+            from youtube_transcript_api import YouTubeTranscriptApi
+            vid_id_match = re.search(r"(?:v=|youtu\.be/)([a-zA-Z0-9_-]{11})", req.youtube_url)
+            if vid_id_match:
+                transcript_data = YouTubeTranscriptApi.get_transcript(vid_id_match.group(1))
+                full_text = " ".join([t["text"] for t in transcript_data])
+                transcript_snippet = full_text[:3000] # Use more text for Gemini!
         except Exception as ex:
-            print(f"Wizard Error: {ex}")
-        # Fallback paths
-        return {"paths": [
-            {"id": "fast", "name": "Fast Track ⚡", "description": "Get productive fast. Skip theory, jump to core concepts and projects.", "duration": "2–3 weeks", "modules": [f"{req.goal} Crash Course", "Core Patterns", "Mini Project", "Final Challenge"]},
-            {"id": "foundation", "name": "Strong Foundation 🧠", "description": "Learn it deeply and properly, from first principles.", "duration": "6–8 weeks", "modules": ["Introduction & History", "Core Fundamentals", "Theory Deep Dive", "Intermediate Patterns", "Advanced Techniques", "Capstone Project"]},
-            {"id": "career", "name": "Industry Ready 💼", "description": "Job-focused: real tools, deployment, and portfolio building.", "duration": "4–6 weeks", "modules": [f"{req.goal} Essentials", "Real-World Tooling", "Industry Project", "Deployment & DevOps", "Portfolio Building"]},
-        ]}
-    else:
-        # Step 2: Build graph for chosen path
-        path_name = {"fast": "Fast Track", "foundation": "Strong Foundation", "career": "Industry Ready"}.get(req.path, req.path)
+            print(f"Transcript error: {ex}")
 
-        # If user provided YouTube URL, extract transcript for deeper module naming
-        transcript_snippet = ""
-        if req.youtube_url:
-            try:
-                from youtube_transcript_api import YouTubeTranscriptApi
-                vid_id_match = re.search(r"(?:v=|youtu\.be/)([a-zA-Z0-9_-]{11})", req.youtube_url)
-                if vid_id_match:
-                    transcript_data = YouTubeTranscriptApi.get_transcript(vid_id_match.group(1))
-                    full_text = " ".join([t["text"] for t in transcript_data])
-                    transcript_snippet = full_text[:1500]
-            except Exception as ex:
-                print(f"Transcript error: {ex}")
+    db_user = user_collection.find_one({"_id": ObjectId(user["id"])})
+    model = get_gemini_model(db_user.get("gemini_api_key", ""), "gemini-1.5-flash")
 
-        extra = f" Base the modules on this video transcript: {transcript_snippet[:800]}" if transcript_snippet else ""
-        prompt = f"[INST] Create a step-by-step learning roadmap for '{req.goal}' using the '{path_name}' approach.{extra} Output ONLY a raw JSON array of module objects. Format: [{{\"id\":\"1\",\"title\":\"Module Name\",\"depends_on\":[]}},...] Make 5–7 modules with dependency chains. [/INST]"
-        payload = {"inputs": prompt, "parameters": {"max_new_tokens": 700, "return_full_text": False, "temperature": 0.3}}
-        try:
-            res = requests.post("https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.2", headers=headers, json=payload, timeout=18)
-            if res.status_code == 200:
-                text = res.json()[0]["generated_text"].strip()
-                s, e = text.find("["), text.rfind("]")
-                if s != -1 and e != -1:
-                    modules = json.loads(text[s:e+1])
-                    nodes, edges, y = [], [], 0
-                    for i, m in enumerate(modules):
-                        nid = str(m.get("id", i + 1))
-                        nodes.append({"id": nid, "type": "custom", "title": m.get("title", f"Module {nid}"), "status": "active" if i == 0 else "locked", "position": {"x": 300 + (i % 2) * 180, "y": y}, "transcript": transcript_snippet if i == 0 else ""})
-                        y += 160
-                        for dep in m.get("depends_on", []):
-                            edges.append({"id": f"e{dep}-{nid}", "source": str(dep), "target": nid, "animated": True})
-                    return {"nodes": nodes, "edges": edges, "title": f"{req.goal} — {path_name}"}
-        except Exception as ex:
-            print(f"Wizard Graph Error: {ex}")
-        # Fallback
-        topics = ["Introduction", "Core Concepts", "Hands-On Practice", "Advanced Topics", "Final Project"]
-        nodes = [{"id": str(i+1), "type": "custom", "title": f"{req.goal}: {t}", "status": "active" if i == 0 else "locked", "position": {"x": 300, "y": i*160}, "transcript": transcript_snippet if i == 0 else ""} for i, t in enumerate(topics)]
-        edges = [{"id": f"e{i}-{i+1}", "source": str(i), "target": str(i+1), "animated": True} for i in range(1, len(topics))]
-        return {"nodes": nodes, "edges": edges, "title": f"{req.goal} — {path_name}"}
+    extra = f" Base the roadmap strictly on this YouTube video transcript: {transcript_snippet}" if transcript_snippet else ""
+    prompt = f"Create a highly detailed, step-by-step learning roadmap for '{req.goal}', designed to be completed in approximately '{req.timeframe}'. {extra} Output ONLY a raw JSON array of module objects. Format exactly as: [{{\"id\":\"1\",\"title\":\"Module Name\",\"description\":\"...\",\"depends_on\":[]}}]"
+
+    try:
+        response = model.generate_content(prompt)
+        text = response.text.replace("```json", "").replace("```", "").strip()
+        s, e = text.find("["), text.rfind("]")
+        if s != -1 and e != -1:
+            modules = json.loads(text[s:e+1])
+            nodes, edges, y = [], [], 0
+            for i, m in enumerate(modules):
+                nid = str(m.get("id", i + 1))
+                nodes.append({"id": nid, "type": "custom", "title": m.get("title", f"Module {nid}"), "description": m.get("description", ""), "status": "active" if i == 0 else "locked", "position": {"x": 300 + (i % 2) * 180, "y": y}, "transcript": transcript_snippet if i == 0 else ""})
+                y += 160
+                for dep in m.get("depends_on", []):
+                    edges.append({"id": f"e{dep}-{nid}", "source": str(dep), "target": nid, "animated": True})
+            return {"nodes": nodes, "edges": edges, "title": req.goal}
+    except Exception as ex:
+        print(f"Gemini Graph Error: {ex}")
+        raise HTTPException(status_code=500, detail="AI generation failed. Please check your API key.")
 
 # ─────────── ≡ Evaluate Node (Adaptive Engine) ───────────
 
@@ -319,28 +307,26 @@ def evaluate_node(subject_id: str, node_id: str, score: int, user=Depends(get_cu
 # ─────────── ≡ Quiz (Transcript-Powered) ───────────
 
 @app.post("/quizzes/generate")
-def generate_quiz(req: QuizRequest):
-    headers = {"Authorization": f"Bearer {HF_API_KEY}", "Content-Type": "application/json"}
-    if req.transcript:
-        context = f"Based on this content: {req.transcript[:1200]}. "
-        prompt = f"[INST] {context}Generate 3 multiple choice questions that test understanding of exactly what was taught. Output ONLY a raw JSON array, no markdown. Format: [{{\"id\":1,\"question\":\"...\",\"options\":[\"A\",\"B\",\"C\",\"D\"],\"answer\":\"A\",\"explanation\":\"...\"}},...] [/INST]"
-    else:
-        prompt = f"[INST] Generate 3 multiple choice educational questions about {req.subject}. Output ONLY a raw JSON array, no markdown. Format: [{{\"id\":1,\"question\":\"...\",\"options\":[\"A\",\"B\",\"C\",\"D\"],\"answer\":\"A\",\"explanation\":\"...\"}},...] [/INST]"
+def generate_quiz(req: QuizRequest, user=Depends(get_current_user)):
+    db_user = user_collection.find_one({"_id": ObjectId(user["id"])})
+    model = get_gemini_model(db_user.get("gemini_api_key", ""), "gemini-1.5-flash")
 
-    payload = {"inputs": prompt, "parameters": {"max_new_tokens": 900, "return_full_text": False, "temperature": 0.3}}
+    if req.transcript:
+        context = f"Based strictly on this video transcript: {req.transcript[:2500]}. "
+    else:
+        context = f"Based on the academic subject '{req.subject}'. "
+    
+    prompt = f"{context}Generate exactly 4 multiple choice questions to test understanding. Output ONLY a raw JSON array, without markdown. Format: [{{\"id\":1,\"question\":\"...\",\"options\":[\"A\",\"B\",\"C\",\"D\"],\"answer\":\"A\",\"explanation\":\"...\"}}]"
+
     try:
-        res = requests.post("https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.2", headers=headers, json=payload, timeout=18)
-        if res.status_code == 200:
-            text = res.json()[0]["generated_text"].strip()
-            s, e = text.find("["), text.rfind("]")
-            if s != -1 and e != -1:
-                return {"questions": json.loads(text[s:e+1])}
+        response = model.generate_content(prompt)
+        text = response.text.replace("```json", "").replace("```", "").strip()
+        s, e = text.find("["), text.rfind("]")
+        if s != -1 and e != -1:
+            return {"questions": json.loads(text[s:e+1])}
     except Exception as ex:
         print(f"Quiz error: {ex}")
-    return {"questions": [
-        {"id": 1, "question": f"What is the main purpose of {req.subject}?", "options": ["To solve problems efficiently", "To increase complexity", "To slow down programs", "None of the above"], "answer": "To solve problems efficiently", "explanation": f"{req.subject} is designed to help solve real-world problems efficiently."},
-        {"id": 2, "question": f"Which concept is central to {req.subject}?", "options": ["Abstraction", "Randomness", "Hardcoding", "Manual execution"], "answer": "Abstraction", "explanation": "Abstraction is a fundamental concept in most programming and technology topics."},
-    ]}
+        raise HTTPException(status_code=500, detail="Failed to generate quiz. Verify Gemini API key.")
 
 # ─────────── ≡ YouTube Transcript ───────────
 
@@ -368,16 +354,14 @@ def search_youtube(q: str):
 # ─────────── ≡ AI Tutor Chat ───────────
 
 @app.post("/mentor/chat")
-def mentor_chat(req: ChatRequest):
-    headers = {"Authorization": f"Bearer {HF_API_KEY}", "Content-Type": "application/json"}
-    prompt = f"[INST] You are an expert AI tutor. The student is studying: '{req.context}'. They ask: '{req.message}'. Give a concise, clear explanation in 1-2 paragraphs. No markdown. [/INST]"
-    payload = {"inputs": prompt, "parameters": {"max_new_tokens": 350, "return_full_text": False, "temperature": 0.4}}
+def mentor_chat(req: ChatRequest, user=Depends(get_current_user)):
+    db_user = user_collection.find_one({"_id": ObjectId(user["id"])})
+    model = get_gemini_model(db_user.get("gemini_api_key", ""), "gemini-1.5-flash")
+
+    prompt = f"You are an expert AI tutor. The student is currently studying: '{req.context}'. They say: '{req.message}'. Reply with a concise, encouraging, and clear explanation."
     try:
-        res = requests.post("https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.2", headers=headers, json=payload, timeout=14)
-        if res.status_code == 200:
-            text = res.json()[0]["generated_text"].strip()
-            if "[/INST]" in text: text = text.split("[/INST]")[-1].strip()
-            return {"reply": text}
-    except Exception:
-        pass
-    return {"reply": "I'm having trouble connecting to the AI right now. Please try asking again in a moment!"}
+        response = model.generate_content(prompt)
+        return {"reply": response.text.strip()}
+    except Exception as ex:
+        print(f"Chat error: {ex}")
+        return {"reply": "I'm having trouble thinking right now. Please check if your Gemini API key is configured correctly in Settings!"}

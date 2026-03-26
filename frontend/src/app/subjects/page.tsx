@@ -29,11 +29,10 @@ export default function SubjectsPage() {
   const [loading, setLoading] = useState(true);
   const [showWizard, setShowWizard] = useState(false);
 
-  const [wizardStep, setWizardStep] = useState<"goal" | "paths" | "preview" | "saving">("goal");
+  const [wizardStep, setWizardStep] = useState<"goal" | "preview" | "saving">("goal");
   const [goalInput, setGoalInput] = useState("");
+  const [timeframeInput, setTimeframeInput] = useState("4 weeks");
   const [ytUrl, setYtUrl] = useState("");
-  const [aiPaths, setAiPaths] = useState<LearningPath[]>([]);
-  const [selectedPath, setSelectedPath] = useState<LearningPath | null>(null);
   const [previewNodes, setPreviewNodes] = useState<Node[]>([]);
   const [previewEdges, setPreviewEdges] = useState<Edge[]>([]);
   const [previewTitle, setPreviewTitle] = useState("");
@@ -60,21 +59,9 @@ export default function SubjectsPage() {
     if (!goalInput.trim()) return;
     setWizardLoading(true); setWizardError("");
     try {
-      const res = await fetch(`${apiUrl}/subjects/wizard-paths`, {
+      const res = await fetch(`${apiUrl}/subjects/generate-detailed`, {
         method: "POST", headers: authHeaders,
-        body: JSON.stringify({ goal: goalInput, youtube_url: ytUrl || null }),
-      });
-      if (res.ok) { const d = await res.json(); setAiPaths(d.paths); setWizardStep("paths"); }
-    } catch { setWizardError("AI is busy, try again!"); }
-    finally { setWizardLoading(false); }
-  };
-
-  const handlePathSelect = async (path: LearningPath) => {
-    setSelectedPath(path); setWizardLoading(true); setWizardError("");
-    try {
-      const res = await fetch(`${apiUrl}/subjects/wizard-paths`, {
-        method: "POST", headers: authHeaders,
-        body: JSON.stringify({ goal: goalInput, path: path.id, youtube_url: ytUrl || null }),
+        body: JSON.stringify({ goal: goalInput, timeframe: timeframeInput, youtube_url: ytUrl || null }),
       });
       if (res.ok) {
         const data = await res.json();
@@ -86,13 +73,15 @@ export default function SubjectsPage() {
         }));
         setPreviewNodes(rfNodes); setPreviewEdges(data.edges || []);
         setWizardStep("preview");
+      } else {
+        const err = await res.json();
+        setWizardError(err.detail || "AI generation failed. Check your Gemini API key in Settings.");
       }
-    } catch { setWizardError("Failed to generate roadmap."); }
+    } catch { setWizardError("AI is busy, try again!"); }
     finally { setWizardLoading(false); }
   };
 
   const handleSaveRoadmap = async () => {
-    if (!selectedPath) return;
     setWizardStep("saving");
     try {
       const backendNodes = previewNodes.map(n => ({
@@ -101,15 +90,15 @@ export default function SubjectsPage() {
       }));
       const res = await fetch(`${apiUrl}/subjects/`, {
         method: "POST", headers: authHeaders,
-        body: JSON.stringify({ title: previewTitle, description: `${selectedPath.name} path`, nodes: backendNodes, edges: previewEdges }),
+        body: JSON.stringify({ title: previewTitle, description: `Detailed ${timeframeInput} roadmap`, nodes: backendNodes, edges: previewEdges }),
       });
       if (res.ok) { await fetchSubjects(); resetWizard(); }
     } catch { setWizardStep("preview"); }
   };
 
   const resetWizard = () => {
-    setShowWizard(false); setWizardStep("goal"); setGoalInput(""); setYtUrl("");
-    setAiPaths([]); setSelectedPath(null); setPreviewNodes([]); setPreviewEdges([]); setWizardError("");
+    setShowWizard(false); setWizardStep("goal"); setGoalInput(""); setTimeframeInput("4 weeks"); setYtUrl("");
+    setPreviewNodes([]); setPreviewEdges([]); setWizardError("");
   };
 
   const handleDelete = async (e: React.MouseEvent, id: string) => {
@@ -193,9 +182,8 @@ export default function SubjectsPage() {
                 <div>
                   <h2 className="text-xl font-bold text-white">AI Mission Wizard</h2>
                   <p className="text-xs text-gray-500">
-                    {wizardStep === "goal" && "Step 1 of 3 — Describe your goal"}
-                    {wizardStep === "paths" && "Step 2 of 3 — Choose your path"}
-                    {wizardStep === "preview" && "Step 3 of 3 — Preview & launch"}
+                    {wizardStep === "goal" && "Step 1 of 2 — Describe your goal"}
+                    {wizardStep === "preview" && "Step 2 of 2 — Preview & launch"}
                     {wizardStep === "saving" && "Saving..."}
                   </p>
                 </div>
@@ -207,60 +195,35 @@ export default function SubjectsPage() {
               <div className="flex-1 flex flex-col items-center justify-center p-12">
                 <div className="w-16 h-16 bg-blue-500/10 border border-blue-500/20 rounded-2xl flex items-center justify-center mb-6 text-blue-400"><Brain size={32} /></div>
                 <h3 className="text-3xl font-black text-white mb-2 text-center">What do you want to master?</h3>
-                <p className="text-gray-500 mb-8 text-center max-w-md">The AI analyzes your goal and builds 3 personalized roadmap options. Optionally add a YouTube video or playlist for deeper integration.</p>
+                <p className="text-gray-500 mb-8 text-center max-w-md">The AI analyzes your goal and instantly generates a highly detailed, step-by-step roadmap tailored to your timeframe.</p>
                 <form onSubmit={handleGoalSubmit} className="w-full max-w-xl space-y-3">
                   <input autoFocus value={goalInput} onChange={e => setGoalInput(e.target.value)}
                     placeholder='e.g. "Master React.js from scratch"'
                     className="w-full bg-gray-900 border border-gray-700 focus:border-blue-500 rounded-xl px-5 py-4 text-white text-lg focus:outline-none transition placeholder-gray-600"
                   />
+                  <div className="flex gap-3">
+                    <div className="flex-1 bg-gray-900/50 border border-gray-800 rounded-xl px-4 py-3 flex items-center gap-3">
+                      <Zap size={16} className="text-gray-500 flex-shrink-0" />
+                      <input value={timeframeInput} onChange={e => setTimeframeInput(e.target.value)}
+                        placeholder="Timeframe (e.g. 4 weeks)"
+                        className="w-full bg-transparent text-gray-300 text-sm focus:outline-none placeholder-gray-600"
+                      />
+                    </div>
+                  </div>
                   <div className="flex items-center gap-3 bg-gray-900/50 border border-gray-800 rounded-xl px-4 py-3">
                     <Link2 size={16} className="text-gray-500 flex-shrink-0" />
                     <input value={ytUrl} onChange={e => setYtUrl(e.target.value)}
-                      placeholder="YouTube video or playlist URL (optional — makes quiz smarter)"
+                      placeholder="YouTube video or playlist URL (optional — heavily influences AI)"
                       className="flex-1 bg-transparent text-gray-300 text-sm focus:outline-none placeholder-gray-600"
                     />
                   </div>
                   <button type="submit" disabled={wizardLoading || !goalInput.trim()}
-                    className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 disabled:opacity-50 text-white px-6 py-4 rounded-xl font-bold flex items-center justify-center gap-2 transition shadow-lg"
+                    className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 disabled:opacity-50 text-white px-6 py-4 rounded-xl font-bold flex items-center justify-center gap-2 transition shadow-lg mt-2"
                   >
-                    {wizardLoading ? <><Loader2 className="animate-spin" size={20} /> Generating your paths...</> : <><ArrowRight size={20} /> Generate Learning Paths</>}
+                    {wizardLoading ? <><Loader2 className="animate-spin" size={20} /> Generating your detailed roadmap...</> : <><ArrowRight size={20} /> Generate Interactive Roadmap</>}
                   </button>
                 </form>
                 {wizardError && <p className="text-red-400 mt-4 text-sm">{wizardError}</p>}
-              </div>
-            )}
-
-            {wizardStep === "paths" && (
-              <div className="flex-1 overflow-y-auto p-8">
-                <div className="text-center mb-8">
-                  <h3 className="text-2xl font-black text-white mb-2">Choose your learning style</h3>
-                  <p className="text-gray-500">AI-generated paths for: <span className="text-blue-400 font-semibold">&quot;{goalInput}&quot;</span></p>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-                  {aiPaths.map(path => {
-                    const Icon = pathIcons[path.id] || Sparkles;
-                    return (
-                      <button key={path.id} onClick={() => handlePathSelect(path)} disabled={wizardLoading}
-                        className={`text-left p-6 rounded-2xl border-2 transition-all hover:scale-105 disabled:opacity-60 ${pathColors[path.id] || "border-gray-700"}`}
-                      >
-                        <Icon size={30} className="mb-4 text-white" />
-                        <h4 className="text-lg font-bold text-white mb-2">{path.name}</h4>
-                        <p className="text-gray-400 text-sm mb-3">{path.description}</p>
-                        <p className="text-xs text-gray-500 flex items-center gap-1.5 mb-3"><Trophy size={12} /> {path.duration}</p>
-                        <div className="space-y-1.5">
-                          {path.modules?.slice(0, 4).map((m, i) => (
-                            <div key={i} className="flex items-center gap-2 text-xs text-gray-400">
-                              <div className="w-1.5 h-1.5 rounded-full bg-blue-400 flex-shrink-0" /> {m}
-                            </div>
-                          ))}
-                        </div>
-                        {wizardLoading && selectedPath?.id === path.id && (
-                          <div className="flex items-center gap-2 mt-4 text-blue-400 text-sm"><Loader2 className="animate-spin" size={14} /> Building graph...</div>
-                        )}
-                      </button>
-                    );
-                  })}
-                </div>
               </div>
             )}
 
@@ -272,9 +235,9 @@ export default function SubjectsPage() {
                     <p className="text-xs text-gray-500">Drag nodes to explore. Click &quot;Launch Mission&quot; to save.</p>
                   </div>
                   <div className="flex gap-3">
-                    <button onClick={() => { setWizardStep("paths"); setSelectedPath(null); }}
+                    <button onClick={() => { setWizardStep("goal"); }}
                       className="bg-gray-800 hover:bg-gray-700 text-white px-4 py-2 rounded-lg text-sm font-bold transition">
-                      ← Change Path
+                      ← Edit Goal
                     </button>
                     <button onClick={handleSaveRoadmap}
                       className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white px-6 py-2 rounded-lg text-sm font-bold flex items-center gap-2 transition shadow-lg shadow-blue-900/30">
