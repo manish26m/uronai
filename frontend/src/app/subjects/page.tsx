@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Plus, PlaySquare, Library, ArrowRight, Loader2, Sparkles, Check, Youtube } from "lucide-react";
+import { Plus, Library, ArrowRight, Loader2, Sparkles, Check, Youtube } from "lucide-react";
 import Link from "next/link";
 import Flowchart from "@/components/Flowchart";
 import { Node, Edge } from "@xyflow/react";
