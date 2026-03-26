@@ -38,6 +38,10 @@ export default function SubjectDashboard({ params }: { params: Promise<{ id: str
   const [activeNode, setActiveNode] = useState<RoadmapNode | null>(null);
   const [loading, setLoading] = useState(true);
   const [evaluating, setEvaluating] = useState(false);
+  
+  const [activeQuiz, setActiveQuiz] = useState<any[] | null>(null);
+  const [quizLoading, setQuizLoading] = useState(false);
+  const [selectedAnswers, setSelectedAnswers] = useState<Record<number, string>>({});
 
   useEffect(() => {
     fetchSubjectData();
@@ -71,11 +75,46 @@ export default function SubjectDashboard({ params }: { params: Promise<{ id: str
     }
   };
 
+  const handleGenerateQuiz = async () => {
+    if (!activeNode) return;
+    setQuizLoading(true);
+    setActiveQuiz(null);
+    setSelectedAnswers({});
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000';
+      const res = await fetch(`${apiUrl}/quizzes/generate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ subject: activeNode.title })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setActiveQuiz(data.questions);
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setQuizLoading(false);
+    }
+  };
+
+  const handleQuizSubmit = async () => {
+    if (!activeQuiz) return;
+    let correct = 0;
+    activeQuiz.forEach((q) => {
+      if (selectedAnswers[q.id] === q.answer) correct++;
+    });
+    const score = Math.round((correct / activeQuiz.length) * 100);
+    await handleEvaluateNode(score);
+    setActiveQuiz(null);
+  };
+
   const handleNodeClick = (e: React.MouseEvent, node: Node) => {
     if (!subject) return;
     const backendNode = subject.nodes.find(n => n.id === node.id);
     if (backendNode) {
       setActiveNode(backendNode);
+      setActiveQuiz(null);
     }
   };
 
@@ -205,24 +244,50 @@ export default function SubjectDashboard({ params }: { params: Promise<{ id: str
                 )}
 
                 <div className="pt-6 border-t border-gray-800 mt-auto flex flex-col gap-3">
-                  {activeNode.status === 'active' || activeNode.status === 'failed' ? (
-                     <>
-                        <button 
-                          disabled={evaluating}
-                          onClick={() => handleEvaluateNode(90)} 
-                          className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-4 rounded-xl flex justify-center items-center gap-2 transition-colors disabled:opacity-50"
-                        >
-                          {evaluating ? <Loader2 className="animate-spin" /> : <><Trophy size={20} /> Pass Assessment (Score 90%)</>}
-                        </button>
-                        <button 
-                          disabled={evaluating}
-                          onClick={() => handleEvaluateNode(40)} 
-                          className="w-full bg-gray-800 hover:bg-red-900/50 text-gray-300 hover:text-red-400 font-bold py-3 rounded-xl flex justify-center items-center gap-2 transition-colors disabled:opacity-50"
-                        >
-                          {evaluating ? <Loader2 className="animate-spin" /> : "Fail Assessment (Score 40%)"}
-                        </button>
-                     </>
-                  ) : activeNode.status === 'completed' && (
+                  {(activeNode.status === 'active' || activeNode.status === 'failed') && !activeQuiz && (
+                     <button 
+                       disabled={quizLoading}
+                       onClick={handleGenerateQuiz} 
+                       className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-4 rounded-xl flex justify-center items-center gap-2 transition-colors disabled:opacity-50 shadow-lg shadow-blue-900/40"
+                     >
+                       {quizLoading ? <Loader2 className="animate-spin" /> : <><Trophy size={20} /> Start True Evaluation Quiz</>}
+                     </button>
+                  )}
+                  
+                  {activeQuiz && (
+                    <div className="flex flex-col gap-6 bg-gray-950 p-4 rounded-xl border border-gray-800 animate-in fade-in zoom-in-95 duration-300">
+                      <div className="flex justify-between items-center mb-2">
+                        <h4 className="font-bold text-white">Knowledge Assessment</h4>
+                        <span className="text-xs font-bold text-blue-400 bg-blue-500/10 px-2 py-1 rounded border border-blue-500/20">{activeQuiz.length} Questions</span>
+                      </div>
+                      
+                      {activeQuiz.map((q: any, i: number) => (
+                        <div key={q.id} className="space-y-3 pb-4 border-b border-gray-800 last:border-0 last:pb-0">
+                          <p className="text-sm text-gray-200"><span className="font-bold text-blue-400">Q{i+1}:</span> {q.question}</p>
+                          <div className="flex flex-col gap-2">
+                            {q.options.map((opt: string) => (
+                              <button
+                                key={opt}
+                                onClick={() => setSelectedAnswers(prev => ({ ...prev, [q.id]: opt }))}
+                                className={`text-left p-3 rounded-lg text-sm transition-all border ${selectedAnswers[q.id] === opt ? 'bg-blue-600/20 border-blue-500 text-white' : 'bg-gray-900 border-gray-700 text-gray-400 hover:border-gray-500'}`}
+                              >
+                                {opt}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                      <button 
+                        disabled={evaluating || Object.keys(selectedAnswers).length < activeQuiz.length}
+                        onClick={handleQuizSubmit} 
+                        className="w-full bg-green-600 hover:bg-green-500 text-white font-bold py-3 mt-4 rounded-xl flex justify-center items-center gap-2 transition-colors disabled:opacity-50 shadow-lg shadow-green-900/40"
+                      >
+                        {evaluating ? <Loader2 className="animate-spin" /> : <><CheckCircle size={20} /> Submit Answers & Score It</>}
+                      </button>
+                    </div>
+                  )}
+
+                  {activeNode.status === 'completed' && (
                      <button className="w-full bg-green-600/20 border border-green-500/50 text-green-500 font-bold py-4 rounded-xl flex justify-center items-center gap-2">
                         <CheckCircle size={20} /> Module Conquered
                      </button>

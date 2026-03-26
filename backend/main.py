@@ -271,52 +271,6 @@ def generate_flow(request: FlowRequest):
 
 @app.post("/subjects/evaluate-node/{subject_id}/{node_id}")
 def evaluate_node(subject_id: str, node_id: str, score: int):
-    # Retrieve the subject entirely
-    doc = subject_collection.find_one({"_id": ObjectId(subject_id)})
-    if not doc: raise HTTPException(status_code=404)
-    
-    nodes = doc.get("nodes", [])
-    edges = doc.get("edges", [])
-    
-    current_node = next((n for n in nodes if n["id"] == node_id), None)
-    if not current_node: raise HTTPException(status_code=404)
-    
-    current_node["score"] = score
-    doc["xp"] = doc.get("xp", 0) + score
-    
-    # Adaptive Logic Decision Engine
-    if score < 50:
-        current_node["status"] = "failed"
-        # In a full system, here we query HuggingFace to inject revision nodes.
-        # For MVP, we simply reset it to active to force a re-try
-        current_node["status"] = "active"
-    elif score >= 80:
-        current_node["status"] = "completed"
-        doc["xp"] += 50 # Bonus XP
-        
-        # Unlock immediately dependent nodes
-        children_ids = [e["target"] for e in edges if e["source"] == node_id]
-        for n in nodes:
-            if n["id"] in children_ids:
-                n["status"] = "active"
-    else:
-        current_node["status"] = "completed"
-        children_ids = [e["target"] for e in edges if e["source"] == node_id]
-        for n in nodes:
-            if n["id"] in children_ids:
-                n["status"] = "active"
-                
-    # Recalculate global subject progress
-    total = len(nodes)
-    comp = len([n for n in nodes if n["status"] == "completed"])
-    doc["progress_percentage"] = int((comp / total) * 100) if total > 0 else 0
-    
-    subject_collection.update_one({"_id": ObjectId(subject_id)}, {"$set": {"nodes": nodes, "edges": edges, "xp": doc["xp"], "progress_percentage": doc["progress_percentage"]}})
-    
-    return parse_subject(doc)
-
-@app.post("/subjects/evaluate-node/{subject_id}/{node_id}")
-def evaluate_node(subject_id: str, node_id: str, score: int):
     doc = subject_collection.find_one({"_id": ObjectId(subject_id)})
     if not doc: raise HTTPException(status_code=404)
     
