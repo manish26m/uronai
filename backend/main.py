@@ -4,7 +4,7 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel, EmailStr, Field
 from typing import List, Optional, Any
 from bson.objectid import ObjectId
-from passlib.context import CryptContext
+import bcrypt
 from jose import JWTError, jwt
 from datetime import datetime, timedelta
 import os, requests, re, json, uuid
@@ -24,11 +24,20 @@ ADMIN_PASS  = os.getenv("ADMIN_PASSWORD", "Wearebro@123")
 
 user_collection = db["users"]
 
-pwd_ctx = CryptContext(schemes=["bcrypt"], deprecated="auto")
 bearer  = HTTPBearer(auto_error=False)
 
 app = FastAPI(title="UronAI API — Next-Gen Adaptive Learning")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
+
+# ─────────── Helpers ───────────
+def hash_password(p: str) -> str:
+    # Truncate to 72 bytes if necessary, then hash
+    b_pass = p.encode('utf-8')[:72]
+    return bcrypt.hashpw(b_pass, bcrypt.gensalt()).decode('utf-8')
+
+def verify_password(plain: str, hashed: str) -> bool:
+    b_plain = plain.encode('utf-8')[:72]
+    return bcrypt.checkpw(b_plain, hashed.encode('utf-8'))
 
 # ─────────── Seed Admin ───────────
 def seed_admin():
