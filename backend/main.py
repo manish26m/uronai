@@ -65,7 +65,7 @@ def parse_subject(doc) -> dict:
 
 def get_gemini_model(user_api_key: str = "", model_name: str = "gemini-1.5-flash-latest"):
     key = user_api_key if user_api_key else GEMINI_API_KEY
-    if not key: raise HTTPException(status_code=500, detail="No Gemini API Key found")
+    if not key: raise HTTPException(status_code=400, detail="The platform's default AI key is missing. Please add your own Google Gemini API Key in the Settings page to continue.")
     genai.configure(api_key=key)
     return genai.GenerativeModel(model_name)
 
