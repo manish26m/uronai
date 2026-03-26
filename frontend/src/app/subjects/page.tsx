@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Plus, Library, ArrowRight, Loader2, Sparkles, Check, Youtube } from "lucide-react";
+import { Plus, Library, ArrowRight, Loader2, Sparkles, Check, Video } from "lucide-react";
 import Link from "next/link";
 import Flowchart from "@/components/Flowchart";
 import { Node, Edge } from "@xyflow/react";
@@ -175,7 +175,7 @@ export default function SubjectsPage() {
               onClick={() => setActiveTab("youtube")}
               className={`flex items-center gap-2 px-4 py-2 rounded-lg font-bold transition-all ${activeTab === 'youtube' ? 'bg-red-500/20 text-red-400' : 'text-gray-500 hover:text-white'}`}
             >
-              <Youtube size={18} /> YouTube Importer
+              <Video size={18} /> YouTube Importer
             </button>
           </div>
 
@@ -236,7 +236,7 @@ export default function SubjectsPage() {
             <div className="space-y-6 animate-in fade-in">
               <div className="flex items-center gap-3 mb-2">
                 <div className="bg-red-500/20 p-3 rounded-xl text-red-500">
-                  <Youtube size={24} />
+                  <Video size={24} />
                 </div>
                 <div>
                   <h3 className="text-xl font-bold text-white">Extract Playlist</h3>
