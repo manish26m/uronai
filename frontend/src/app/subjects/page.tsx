@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Plus, Library, ArrowRight, Loader2, Sparkles, Check, Video } from "lucide-react";
+import { Plus, Library, ArrowRight, Loader2, Sparkles, Check, Video, Trash2 } from "lucide-react";
 import Link from "next/link";
 import Flowchart from "@/components/Flowchart";
 import { Node, Edge } from "@xyflow/react";
@@ -151,6 +151,18 @@ export default function SubjectsPage() {
     }
   };
 
+  const handleDeleteSubject = async (e: React.MouseEvent, id: string) => {
+    e.preventDefault();
+    if (!confirm("Are you sure you want to permanently delete this curriculum?")) return;
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000';
+      await fetch(`${apiUrl}/subjects/${id}`, { method: "DELETE" });
+      setSubjects(prev => prev.filter(s => s.id !== id));
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
   return (
     <div className="space-y-8 max-w-5xl mx-auto w-full pb-10">
       <div className="flex items-center justify-between">
@@ -245,7 +257,7 @@ export default function SubjectsPage() {
                 </div>
                 <div>
                   <h3 className="text-xl font-bold text-white">Extract Playlist</h3>
-                  <p className="text-sm text-gray-400">Paste any public YouTube playlist URL and we'll automatically extract all modular videos.</p>
+                  <p className="text-sm text-gray-400">Paste any public YouTube playlist URL and we&apos;ll automatically extract all modular videos.</p>
                 </div>
               </div>
               <form onSubmit={handleCreateYt} className="flex flex-col gap-4">
@@ -294,8 +306,13 @@ export default function SubjectsPage() {
           {subjects.map((subject) => (
             <div key={subject.id} className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden hover:border-gray-700 transition-all hover:shadow-lg hover:shadow-blue-900/10 group flex flex-col justify-between">
               <div className="p-6">
-                <div className="w-12 h-12 bg-blue-500/10 text-blue-500 rounded-xl flex items-center justify-center mb-5 border border-blue-500/20">
-                  <Library size={24} />
+                <div className="flex justify-between items-start mb-5">
+                  <div className="w-12 h-12 bg-blue-500/10 text-blue-500 rounded-xl flex items-center justify-center border border-blue-500/20">
+                    <Library size={24} />
+                  </div>
+                  <button onClick={(e) => handleDeleteSubject(e, subject.id)} className="text-gray-600 hover:text-red-500 transition-colors p-2 -mr-2 -mt-2">
+                    <Trash2 size={18} />
+                  </button>
                 </div>
                 <h3 className="font-bold text-xl mb-2 group-hover:text-blue-400 transition-colors line-clamp-2">{subject.title}</h3>
                 

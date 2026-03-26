@@ -176,6 +176,13 @@ def add_video_to_subject(subject_id: str, video: VideoBase):
     new_vid["_id"] = result.inserted_id
     return parse_video(new_vid)
 
+@app.delete("/subjects/{subject_id}")
+def delete_subject(subject_id: str):
+    res = subject_collection.delete_one({"_id": ObjectId(subject_id)})
+    if res.deleted_count == 0:
+        raise HTTPException(status_code=404)
+    return {"message": "Deleted"}
+
 @app.get("/subjects/{subject_id}/videos/", response_model=List[Video])
 def get_subject_videos(subject_id: str):
     cursor = video_collection.find({"subject_id": subject_id})
