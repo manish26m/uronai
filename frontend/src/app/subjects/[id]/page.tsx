@@ -43,6 +43,11 @@ export default function SubjectDashboard({ params }: { params: Promise<{ id: str
   const [quizLoading, setQuizLoading] = useState(false);
   const [selectedAnswers, setSelectedAnswers] = useState<Record<number, string>>({});
 
+  const [activeVideoId, setActiveVideoId] = useState<string | null>(null);
+  const [chatMessage, setChatMessage] = useState("");
+  const [chatHistory, setChatHistory] = useState<{role: string, content: string}[]>([]);
+  const [chatLoading, setChatLoading] = useState(false);
+
   useEffect(() => {
     fetchSubjectData();
   }, [resolvedParams.id]);
@@ -109,12 +114,51 @@ export default function SubjectDashboard({ params }: { params: Promise<{ id: str
     setActiveQuiz(null);
   };
 
+  const fetchTopicVideo = async (topic: string) => {
+    setActiveVideoId(null);
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000';
+      const res = await fetch(`${apiUrl}/youtube/search?q=${encodeURIComponent(topic + " course tutorial")}`);
+      if(res.ok) {
+         const data = await res.json();
+         setActiveVideoId(data.video_id);
+      }
+    } catch(err) {}
+  };
+
   const handleNodeClick = (e: React.MouseEvent, node: Node) => {
     if (!subject) return;
     const backendNode = subject.nodes.find(n => n.id === node.id);
     if (backendNode) {
       setActiveNode(backendNode);
       setActiveQuiz(null);
+      setChatHistory([]);
+      fetchTopicVideo(backendNode.title);
+    }
+  };
+
+  const handleChatSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if(!chatMessage.trim() || !activeNode) return;
+     
+    const userMsg = chatMessage;
+    setChatHistory(prev => [...prev, {role: "user", content: userMsg}]);
+    setChatMessage("");
+    setChatLoading(true);
+     
+    try {
+       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000';
+       const res = await fetch(`${apiUrl}/mentor/chat`, {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ message: userMsg, context: activeNode.title })
+       });
+       if(res.ok) {
+          const data = await res.json();
+          setChatHistory(prev => [...prev, {role: "assistant", content: data.reply}]);
+       }
+    } catch(err) {
+    } finally {
+       setChatLoading(false);
     }
   };
 
@@ -221,17 +265,51 @@ export default function SubjectDashboard({ params }: { params: Promise<{ id: str
 
                 {activeNode.status !== 'locked' && (
                   <div className="flex-1 flex flex-col gap-4">
-                    <div className="bg-black aspect-video rounded-xl border border-gray-800 flex items-center justify-center text-gray-600">
-                       <PlayCircle size={40} className="mb-2" />
-                       <span className="sr-only">Video Player UI Placeholder</span>
-                    </div>
-                    <div className="bg-gray-950 p-4 rounded-xl border border-gray-800">
-                      <h4 className="font-bold text-white mb-2">Module Objectives</h4>
-                      <ul className="text-sm text-gray-400 space-y-2 list-disc list-inside">
-                        <li>Understand the core fundamentals</li>
-                        <li>Practice building an example project</li>
-                        <li>Pass the evaluation quiz to unlock the next node</li>
-                      </ul>
+                    {activeVideoId ? (
+                      <div className="bg-black aspect-video rounded-xl border border-gray-800 flex items-center justify-center overflow-hidden relative shadow-lg">
+                         <iframe 
+                           width="100%" height="100%" 
+                           src={`https://www.youtube.com/embed/${activeVideoId}`} 
+                           title={activeNode.title} 
+                           allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+                           allowFullScreen
+                           className="absolute inset-0 border-0"
+                         ></iframe>
+                      </div>
+                    ) : (
+                      <div className="bg-black aspect-video rounded-xl border border-gray-800 flex flex-col items-center justify-center text-gray-600 shadow-lg">
+                         <Loader2 className="animate-spin mb-2" size={32} />
+                         <span className="text-sm">Locating optimal tutorial...</span>
+                      </div>
+                    )}
+                    
+                    {/* Ask AI Mentor */}
+                    <div className="bg-gray-950 flex flex-col rounded-xl border border-gray-800 overflow-hidden mb-2 shadow-lg">
+                       <div className="p-3 border-b border-gray-800 bg-gray-900/50 flex gap-2 items-center text-purple-400">
+                          <Sparkles size={16} /> <span className="text-xs font-bold uppercase tracking-wider">AI Tutor Chat</span>
+                       </div>
+                       <div className="p-3 max-h-48 overflow-y-auto flex flex-col gap-3 text-sm">
+                          {chatHistory.length === 0 ? (
+                             <p className="text-gray-500 italic text-center py-2">Ask a question if you don't understand the video.</p>
+                          ) : (
+                             chatHistory.map((msg, i) => (
+                                <div key={i} className={`p-2 rounded-lg ${msg.role === 'user' ? 'bg-blue-900/20 text-blue-100 self-end border border-blue-800/30' : 'bg-gray-800 text-gray-200 self-start border border-gray-700 max-w-[90%]'}`}>
+                                   {msg.content}
+                                </div>
+                             ))
+                          )}
+                          {chatLoading && <div className="p-2 self-start"><Loader2 className="animate-spin text-gray-500" size={16} /></div>}
+                       </div>
+                       <form onSubmit={handleChatSubmit} className="p-2 border-t border-gray-900 flex gap-2 bg-black">
+                          <input 
+                            value={chatMessage} onChange={e => setChatMessage(e.target.value)}
+                            placeholder="Need clarification?" 
+                            className="flex-1 bg-gray-900 border border-gray-800 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500" 
+                          />
+                          <button type="submit" disabled={chatLoading} className="bg-blue-600 text-white p-2 px-3 rounded-lg hover:bg-blue-500 disabled:opacity-50">
+                             <ArrowRight size={16} />
+                          </button>
+                       </form>
                     </div>
                     
                     {activeNode.score !== null && activeNode.score !== undefined && (

@@ -98,6 +98,10 @@ class FlowRequest(BaseModel):
 class QuizRequest(BaseModel):
     subject: str
 
+class ChatRequest(BaseModel):
+    message: str
+    context: str
+
 # --------- Routes ---------
 @app.get("/")
 def read_root():
@@ -343,27 +347,27 @@ def evaluate_node(subject_id: str, node_id: str, score: int):
 @app.post("/quizzes/generate")
 def generate_quiz(request: QuizRequest):
     headers = {"Authorization": f"Bearer {HF_API_KEY}", "Content-Type": "application/json"}
-    prompt = f"[INST] Generate exactly 2 multiple choice educational questions about {request.subject}. Return ONLY a raw JSON string (no markdown, no markdown backticks, no comments) matching this exact format: {{\"questions\": [{{\"id\": 1, \"question\": \"string\", \"options\": [\"opt1\", \"opt2\", \"opt3\", \"opt4\"], \"answer\": \"correct_opt\", \"explanation\": \"string\"}}]}} [/INST]"
+    prompt = f"[INST] Generate exactly 2 multiple choice educational questions about {request.subject}. You MUST output strictly a JSON Array of exactly 2 objects. Do NOT use markdown. Do NOT use code blocks. Just output the raw array starting with [ and ending with ]. Example: [{{\"id\": 1, \"question\": \"What?\", \"options\": [\"opt1\", \"opt2\", \"opt3\", \"opt4\"], \"answer\": \"opt1\", \"explanation\": \"Because\"}}] [/INST]"
     
     payload = {
         "inputs": prompt,
-        "parameters": {"max_new_tokens": 800, "return_full_text": False, "temperature": 0.5}
+        "parameters": {"max_new_tokens": 800, "return_full_text": False, "temperature": 0.3}
     }
     
     try:
         res = requests.post("https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.2", headers=headers, json=payload, timeout=15)
         if res.status_code == 200:
             text = res.json()[0]['generated_text'].strip()
-            if text.startswith("```json"): text = text[7:]
-            if text.startswith("```"): text = text[3:]
-            if text.endswith("```"): text = text[:-3]
             
-            match = re.search(r'\{.*\}', text.strip(), re.DOTALL)
-            if match:
-                parsed = json.loads(match.group(0))
-                return {"subject": request.subject, "questions": parsed.get("questions", [])}
+            # Extract array from Mistral's unpredictable output
+            start_idx = text.find('[')
+            end_idx = text.rfind(']')
+            if start_idx != -1 and end_idx != -1:
+                clean_json = text[start_idx:end_idx+1]
+                parsed = json.loads(clean_json)
+                return {"subject": request.subject, "questions": parsed}
     except Exception as e:
-        print(f"HF Error: {e}")
+        print(f"HF Quiz Error: {e}")
         pass
 
     return {
@@ -398,9 +402,35 @@ def get_mentor_advice(user_id: int = 1):
 def get_career_matches(user_id: int = 1):
     return [
         { "id": 1, "role": "Python Developer", "readiness": 85, "missing_skills": ["FastAPI", "Docker"], "growth_roadmap": "Focus on backend fundamentals and containerization." },
-        { "id": 2, "role": "Data Analyst", "readiness": 60, "missing_skills": ["Pandas", "SQL Joins", "Tableau"], "growth_roadmap": "Complete the 'Introduction to Pandas' subject playlist." },
+        { "id": 2, "role": "AI Engineer", "readiness": 40, "missing_skills": ["Machine Learning", "PyTorch"], "growth_roadmap": "Complete the ML and Deep Learning modules." },
         { "id": 3, "role": "ML Engineer", "readiness": 20, "missing_skills": ["PyTorch", "Calculus", "ML Ops"], "growth_roadmap": "Start with mathematical foundations before approaching Deep Learning." }
     ]
+
+@app.get("/youtube/search")
+def search_youtube(q: str):
+    try:
+        res = requests.get(f"https://youtube.googleapis.com/youtube/v3/search?part=snippet&maxResults=1&q={q}&type=video&key={YT_API_KEY}", timeout=5)
+        if res.status_code == 200 and res.json().get("items"):
+            return {"video_id": res.json()["items"][0]["id"]["videoId"]}
+    except Exception:
+        pass
+    return {"video_id": "kqtD5dpn9C8"} # Fallback
+
+@app.post("/mentor/chat")
+def mentor_chat(req: ChatRequest):
+    headers = {"Authorization": f"Bearer {HF_API_KEY}", "Content-Type": "application/json"}
+    prompt = f"[INST] You are an expert AI tutor helping a student deeply understand a specific topic. The student is currently studying the module: '{req.context}'. The student asks: '{req.message}'. Explain it simply, directly, and concisely in 1 to 2 short paragraphs without any external links or markdown formatting. [/INST]"
+    payload = {"inputs": prompt, "parameters": {"max_new_tokens": 300, "temperature": 0.4}}
+    try:
+        res = requests.post("https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.2", headers=headers, json=payload, timeout=12)
+        if res.status_code == 200:
+            text = res.json()[0]['generated_text'].strip()
+            if "[/INST]" in text:
+                text = text.split("[/INST]")[-1].strip()
+            return {"reply": text}
+    except Exception:
+        pass
+    return {"reply": "I'm currently experiencing high API latency with Hugging Face. Please consult the embedded video content above, or try asking your question again shortly!"}
 
 @app.get("/certifications")
 def get_certifications(user_id: int = 1):
