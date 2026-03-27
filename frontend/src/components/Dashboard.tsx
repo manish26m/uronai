@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useSession } from "next-auth/react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { Calendar, TrendingUp, Target, Flame } from "lucide-react";
 
@@ -16,22 +16,27 @@ const progressData = [
 ];
 
 export default function Dashboard() {
+  const { data: session } = useSession();
   const [subjectCount, setSubjectCount] = useState(0);
+  const userName = session?.user?.name || "Learner";
 
   useEffect(() => {
     const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000';
-    fetch(`${apiUrl}/subjects/`)
+    const token = (session as any)?.backendToken;
+    fetch(`${apiUrl}/subjects/`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {}
+    })
       .then(res => res.json())
       .then(data => {
-        setSubjectCount(data.length);
+        if (Array.isArray(data)) setSubjectCount(data.length);
       })
       .catch(console.error);
-  }, []);
+  }, [session]);
 
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-3xl font-bold tracking-tight">Welcome back, User!</h2>
+        <h2 className="text-3xl font-bold tracking-tight">Welcome back, {userName}! 👋</h2>
         <p className="text-gray-400 mt-1">Here is what's happening with your learning journey today.</p>
       </div>
 

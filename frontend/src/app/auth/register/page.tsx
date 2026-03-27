@@ -30,7 +30,12 @@ export default function RegisterPage() {
         const d = await res.json();
         setError(d.detail || "Registration failed");
       } else {
-        await signIn("credentials", { email, password, callbackUrl: "/dashboard" });
+        const d = await res.json();
+        if (d.status === "verify_email") {
+          router.push(`/auth/verify-email?email=${encodeURIComponent(email)}`);
+        } else {
+          await signIn("credentials", { email, password, callbackUrl: "/dashboard" });
+        }
       }
     } catch { setError("Connection error. Please try again."); }
     finally { setLoading(false); }

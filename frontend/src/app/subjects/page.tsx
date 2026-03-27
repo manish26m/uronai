@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
 import { Plus, X, ArrowRight, Loader2, Sparkles, Zap, Brain, Briefcase, Trophy, Trash2, Map, ChevronRight, Link2 } from "lucide-react";
-import Flowchart from "@/components/Flowchart";
+import RoadmapList from "@/components/RoadmapList";
 import { Node, Edge } from "@xyflow/react";
 
 interface Subject {
@@ -33,8 +33,9 @@ export default function SubjectsPage() {
   const [goalInput, setGoalInput] = useState("");
   const [timeframeInput, setTimeframeInput] = useState("4 weeks");
   const [ytUrl, setYtUrl] = useState("");
-  const [previewNodes, setPreviewNodes] = useState<Node[]>([]);
-  const [previewEdges, setPreviewEdges] = useState<Edge[]>([]);
+  const [disableYt, setDisableYt] = useState(false);
+  const [previewNodes, setPreviewNodes] = useState<any[]>([]);
+  const [previewEdges, setPreviewEdges] = useState<any[]>([]);
   const [previewTitle, setPreviewTitle] = useState("");
   const [wizardLoading, setWizardLoading] = useState(false);
   const [wizardError, setWizardError] = useState("");
@@ -66,12 +67,13 @@ export default function SubjectsPage() {
       if (res.ok) {
         const data = await res.json();
         setPreviewTitle(data.title);
-        const rfNodes: Node[] = (data.nodes || []).map((n: any, i: number) => ({
-          id: n.id, type: "custom",
-          position: n.position || { x: 300 + (i % 2) * 180, y: i * 160 },
-          data: { label: n.title, status: n.status || (i === 0 ? "active" : "locked"), isRoot: i === 0 }
+        // Store raw nodes for RoadmapList
+        const nodes = (data.nodes || []).map((n: any) => ({
+          ...n,
+          status: n.status || (n.id === "1" ? "active" : "locked")
         }));
-        setPreviewNodes(rfNodes); setPreviewEdges(data.edges || []);
+        setPreviewNodes(nodes);
+        setPreviewEdges(data.edges || []);
         setWizardStep("preview");
       } else {
         const err = await res.json();
@@ -85,19 +87,20 @@ export default function SubjectsPage() {
     setWizardStep("saving");
     try {
       const backendNodes = previewNodes.map(n => ({
-        id: n.id, type: "custom", title: String(n.data.label),
-        status: String(n.data.status || "locked"), position: n.position
+        id: n.id, type: "custom", title: n.title,
+        status: n.status || "locked", position: n.position,
+        video_id: n.video_id, transcript: n.transcript, description: n.description
       }));
       const res = await fetch(`${apiUrl}/subjects/`, {
         method: "POST", headers: authHeaders,
-        body: JSON.stringify({ title: previewTitle, description: `Detailed ${timeframeInput} roadmap`, nodes: backendNodes, edges: previewEdges }),
+        body: JSON.stringify({ title: previewTitle, description: `Detailed ${timeframeInput} roadmap`, nodes: backendNodes, edges: previewEdges, disable_youtube: disableYt }),
       });
       if (res.ok) { await fetchSubjects(); resetWizard(); }
     } catch { setWizardStep("preview"); }
   };
 
   const resetWizard = () => {
-    setShowWizard(false); setWizardStep("goal"); setGoalInput(""); setTimeframeInput("4 weeks"); setYtUrl("");
+    setShowWizard(false); setWizardStep("goal"); setGoalInput(""); setTimeframeInput("4 weeks"); setYtUrl(""); setDisableYt(false);
     setPreviewNodes([]); setPreviewEdges([]); setWizardError("");
   };
 
@@ -217,6 +220,10 @@ export default function SubjectsPage() {
                       className="flex-1 bg-transparent text-gray-300 text-sm focus:outline-none placeholder-gray-600"
                     />
                   </div>
+                  <label className="flex items-center gap-2 mt-1 px-1 cursor-pointer w-max">
+                    <input type="checkbox" checked={disableYt} onChange={e => setDisableYt(e.target.checked)} className="rounded border-gray-700 bg-gray-900 focus:ring-blue-500 text-blue-500" />
+                    <span className="text-gray-400 text-xs">Disable AI from auto-searching YouTube for unknown modules</span>
+                  </label>
                   <button type="submit" disabled={wizardLoading || !goalInput.trim()}
                     className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 disabled:opacity-50 text-white px-6 py-4 rounded-xl font-bold flex items-center justify-center gap-2 transition shadow-lg mt-2"
                   >
@@ -245,8 +252,8 @@ export default function SubjectsPage() {
                     </button>
                   </div>
                 </div>
-                <div className="flex-1 min-h-[400px]">
-                  <Flowchart nodes={previewNodes} edges={previewEdges} />
+                <div className="flex-1 min-h-[400px] border-t border-gray-800/50 bg-gray-950/20">
+                  <RoadmapList nodes={previewNodes} />
                 </div>
               </div>
             )}

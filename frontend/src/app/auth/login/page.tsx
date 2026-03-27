@@ -18,13 +18,33 @@ export default function LoginPage() {
     e.preventDefault();
     setLoading(true);
     setError("");
-    const result = await signIn("credentials", { email, password, redirect: false });
-    if (result?.ok) {
-      router.push("/dashboard");
-    } else {
-      setError("Invalid email or password. Please try again.");
+    
+    try {
+      // Pre-check verification status
+      const checkRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000"}/auth/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password })
+      });
+      
+      const data = await checkRes.json();
+      if (data.status === "verify_email") {
+        router.push(`/auth/verify-email?email=${encodeURIComponent(email)}`);
+        setLoading(false);
+        return;
+      }
+
+      const result = await signIn("credentials", { email, password, redirect: false });
+      if (result?.ok) {
+        router.push("/dashboard");
+      } else {
+        setError("Invalid email or password. Please try again.");
+      }
+    } catch {
+      setError("Connection error. Please try again.");
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   const handleGoogle = async () => {

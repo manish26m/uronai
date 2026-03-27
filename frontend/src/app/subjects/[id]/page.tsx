@@ -4,18 +4,18 @@ import { useState, useEffect } from "react";
 import { use } from "react";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
-import { Loader2, Lock, CheckCircle, ShieldAlert, PlayCircle, Trophy, Sparkles, ChevronLeft, Send, ArrowRight } from "lucide-react";
-import Flowchart from "@/components/Flowchart";
-import { Node, Edge } from "@xyflow/react";
+import { Loader2, Lock, CheckCircle2, AlertCircle, PlayCircle, Trophy, Sparkles, ChevronLeft, Send, ToggleLeft, ToggleRight, Video } from "lucide-react";
+import RoadmapList from "@/components/RoadmapList";
 
 interface RoadmapNode {
   id: string; title: string; type: string;
-  status: string; score?: number; position?: { x: number; y: number }; transcript?: string; video_id?: string;
+  status: string; score?: number; position?: { x: number; y: number };
+  transcript?: string; video_id?: string; description?: string;
 }
 interface Subject {
   id: string; title: string; description?: string;
   progress_percentage: number; xp: number; level: number;
-  nodes: RoadmapNode[]; edges: any[];
+  nodes: RoadmapNode[]; edges: any[]; disable_youtube?: boolean;
 }
 interface QuizQuestion {
   id: number; question: string; options: string[]; answer: string; explanation?: string;
@@ -29,18 +29,18 @@ export default function LearningArena({ params }: { params: Promise<{ id: string
   const auth = (extra = {}) => ({ "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}), ...extra });
 
   const [subject, setSubject] = useState<Subject | null>(null);
-  const [nodes, setNodes] = useState<Node[]>([]);
-  const [edges, setEdges] = useState<Edge[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeNode, setActiveNode] = useState<RoadmapNode | null>(null);
 
   const [videoId, setVideoId] = useState<string | null>(null);
   const [videoLoading, setVideoLoading] = useState(false);
   const [transcript, setTranscript] = useState<string>("");
+  const [ytEnabled, setYtEnabled] = useState(true);
 
   const [quiz, setQuiz] = useState<QuizQuestion[] | null>(null);
   const [quizLoading, setQuizLoading] = useState(false);
-  const [answers, setAnswers] = useState<Record<number, string>>({});
+  // answers[questionId] = index (0-3) of selected option
+  const [answers, setAnswers] = useState<Record<number, number>>({});
   const [quizResult, setQuizResult] = useState<{ score: number; correct: number; total: number } | null>(null);
   const [evaluating, setEvaluating] = useState(false);
 
@@ -54,29 +54,47 @@ export default function LearningArena({ params }: { params: Promise<{ id: string
     setLoading(true);
     try {
       const res = await fetch(`${apiUrl}/subjects/${id}`, { headers: auth() });
-      if (res.ok) { const d: Subject = await res.json(); setSubject(d); buildGraph(d); }
+      if (res.ok) {
+        const d: Subject = await res.json();
+        setSubject(d);
+        setYtEnabled(!d.disable_youtube);
+      }
     } finally { setLoading(false); }
   };
 
-  const buildGraph = (data: Subject) => {
-    setNodes((data.nodes || []).map((n, i) => ({
-      id: n.id, type: "custom",
-      position: n.position || { x: 300 + (i % 2) * 180, y: i * 160 },
-      data: { label: n.title, status: n.status, isRoot: i === 0 }
-    })));
-    setEdges(data.edges || []);
-  };
-
-  const handleNodeClick = async (_e: React.MouseEvent, node: Node) => {
+  const handleNodeClick = async (node: RoadmapNode) => {
     if (!subject) return;
     const back = subject.nodes.find(n => n.id === node.id);
     if (!back) return;
-    setActiveNode(back); setQuiz(null); setQuizResult(null); setAnswers({}); setChatHistory([]);
+    setActiveNode(back);
+    setQuiz(null); setQuizResult(null); setAnswers({});
+    setChatHistory([]);
     setTranscript(back.transcript || "");
+    setVideoId(null);
+
     if (back.status !== "locked") {
-      if (back.video_id) setVideoId(back.video_id);
-      else fetchVideoAndTranscript(back.title, back.transcript);
+      // If node has a specific video_id (from user-provided YouTube URL), use it directly
+      if (back.video_id) {
+        setVideoId(back.video_id);
+        // Fetch transcript for that specific video if we don't already have one
+        if (!back.transcript) {
+          fetchTranscriptForVideo(back.video_id);
+        }
+      } else if (ytEnabled && !subject.disable_youtube) {
+        // Only search YouTube if user hasn't disabled it and no specific video was set
+        fetchVideoAndTranscript(back.title, back.transcript);
+      }
     }
+  };
+
+  const fetchTranscriptForVideo = async (vid: string) => {
+    try {
+      const tRes = await fetch(`${apiUrl}/youtube/transcript?video_id=${vid}`);
+      if (tRes.ok) {
+        const td = await tRes.json();
+        if (td.transcript) setTranscript(td.transcript.substring(0, 3000));
+      }
+    } catch { /* silent */ }
   };
 
   const fetchVideoAndTranscript = async (topic: string, existingTranscript?: string) => {
@@ -86,10 +104,8 @@ export default function LearningArena({ params }: { params: Promise<{ id: string
       if (res.ok) {
         const d = await res.json();
         setVideoId(d.video_id);
-        // If no stored transcript, fetch from YouTube
         if (!existingTranscript && d.video_id) {
-          const tRes = await fetch(`${apiUrl}/youtube/transcript?video_id=${d.video_id}`);
-          if (tRes.ok) { const td = await tRes.json(); if (td.transcript) setTranscript(td.transcript.substring(0, 3000)); }
+          fetchTranscriptForVideo(d.video_id);
         }
       }
     } finally { setVideoLoading(false); }
@@ -111,12 +127,28 @@ export default function LearningArena({ params }: { params: Promise<{ id: string
     if (!quiz || !activeNode || !subject) return;
     setEvaluating(true);
     let correct = 0;
-    quiz.forEach(q => { if (answers[q.id] === q.answer) correct++; });
+    quiz.forEach(q => {
+      const selectedIndex = answers[q.id];
+      if (selectedIndex === undefined) return;
+      const selectedText = q.options[selectedIndex];
+      // Resolve AI letter answer ("A","B","C","D") to option text for comparison
+      let correctText = q.answer;
+      const letter = String(q.answer).trim().toUpperCase();
+      if (["A", "B", "C", "D"].includes(letter)) {
+        const idx = letter.charCodeAt(0) - 65;
+        correctText = q.options[idx] ?? q.answer;
+      }
+      if (selectedText === correctText) correct++;
+    });
     const score = Math.round((correct / quiz.length) * 100);
     setQuizResult({ score, correct, total: quiz.length });
     try {
       const res = await fetch(`${apiUrl}/subjects/evaluate-node/${subject.id}/${activeNode.id}?score=${score}`, { method: "POST", headers: auth() });
-      if (res.ok) { const updated: Subject = await res.json(); setSubject(updated); buildGraph(updated); setActiveNode(updated.nodes.find(n => n.id === activeNode.id) || activeNode); }
+      if (res.ok) {
+        const updated: Subject = await res.json();
+        setSubject(updated);
+        setActiveNode(updated.nodes.find(n => n.id === activeNode.id) || activeNode);
+      }
     } finally { setEvaluating(false); }
   };
 
@@ -126,7 +158,10 @@ export default function LearningArena({ params }: { params: Promise<{ id: string
     const msg = chatInput; setChatInput(""); setChatLoading(true);
     setChatHistory(h => [...h, { role: "user", content: msg }]);
     try {
-      const res = await fetch(`${apiUrl}/mentor/chat`, { method: "POST", headers: auth(), body: JSON.stringify({ message: msg, context: activeNode.title }) });
+      const res = await fetch(`${apiUrl}/mentor/chat`, {
+        method: "POST", headers: auth(),
+        body: JSON.stringify({ message: msg, context: activeNode.title })
+      });
       if (res.ok) { const d = await res.json(); setChatHistory(h => [...h, { role: "assistant", content: d.reply }]); }
     } finally { setChatLoading(false); }
   };
@@ -138,8 +173,18 @@ export default function LearningArena({ params }: { params: Promise<{ id: string
     </div>;
   }
 
-  const statusColor = { locked: "text-gray-500 bg-gray-800/50", active: "text-blue-400 bg-blue-500/15", completed: "text-green-400 bg-green-500/15", failed: "text-red-400 bg-red-500/15" };
-  const statusIcon = { locked: <Lock size={18} />, active: <PlayCircle size={18} />, completed: <CheckCircle size={18} />, failed: <ShieldAlert size={18} /> };
+  const statusColor = {
+    locked: "text-gray-500 bg-gray-800/50",
+    active: "text-blue-400 bg-blue-500/15",
+    completed: "text-green-400 bg-green-500/15",
+    failed: "text-red-400 bg-red-500/15"
+  };
+  const statusIcon = {
+    locked: <Lock size={18} />,
+    active: <PlayCircle size={18} />,
+    completed: <CheckCircle2 size={18} />,
+    failed: <AlertCircle size={18} />
+  };
 
   return (
     <div className="flex flex-col h-[calc(100vh-80px)] max-w-[1700px] mx-auto w-full">
@@ -151,6 +196,15 @@ export default function LearningArena({ params }: { params: Promise<{ id: string
           <h1 className="text-lg font-bold text-white truncate max-w-sm">{subject.title}</h1>
         </div>
         <div className="flex items-center gap-2 text-sm">
+          {/* YouTube toggle */}
+            <button
+              onClick={() => setYtEnabled(v => !v)}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-semibold transition ${ytEnabled ? "border-red-500/30 bg-red-500/5 text-red-400 hover:bg-red-500/10" : "border-gray-700 bg-gray-900 text-gray-500 hover:text-gray-300"}`}
+            >
+              <Video size={12} />
+              {ytEnabled ? "YT: ON" : "YT: OFF"}
+              {ytEnabled ? <ToggleRight size={14} /> : <ToggleLeft size={14} />}
+            </button>
           <div className="bg-blue-500/10 border border-blue-500/20 text-blue-400 font-bold px-3 py-1.5 rounded-lg">Lv {subject.level}</div>
           <div className="bg-gray-900 border border-gray-800 text-white font-bold px-3 py-1.5 rounded-lg">{subject.xp} XP</div>
           <div className="bg-gray-900 border border-gray-800 px-3 py-1.5 rounded-lg flex items-center gap-2">
@@ -165,14 +219,23 @@ export default function LearningArena({ params }: { params: Promise<{ id: string
       {/* 3-Zone Arena */}
       <div className="flex-1 grid grid-cols-[260px_1fr_300px] gap-4 overflow-hidden min-h-0">
 
-        {/* LEFT: Skill Tree */}
+        {/* LEFT: Skill Tree — clean vertical list */}
         <div className="bg-gray-950/80 border border-gray-800/50 rounded-2xl overflow-hidden flex flex-col backdrop-blur-sm">
           <div className="p-3 border-b border-gray-800/50 flex items-center gap-2 shrink-0">
             <Sparkles size={13} className="text-purple-400" />
             <span className="text-xs font-bold uppercase tracking-wider text-gray-400">Skill Tree</span>
             <span className="ml-auto text-xs text-gray-600">{subject.nodes.length} nodes</span>
           </div>
-          <div className="flex-1 min-h-0"><Flowchart nodes={nodes} edges={edges} onNodeClick={handleNodeClick} /></div>
+          <div className="flex-1 min-h-0">
+            <RoadmapList
+              nodes={subject.nodes.map(n => ({ id: n.id, title: n.title, status: n.status, description: n.description }))}
+              onNodeClick={(n) => {
+                const full = subject.nodes.find(x => x.id === n.id);
+                if (full) handleNodeClick(full);
+              }}
+              activeNodeId={activeNode?.id}
+            />
+          </div>
         </div>
 
         {/* CENTER: Content */}
@@ -181,7 +244,7 @@ export default function LearningArena({ params }: { params: Promise<{ id: string
             <div className="flex-1 bg-gray-950/50 border border-dashed border-gray-800/50 rounded-2xl flex flex-col items-center justify-center text-center p-10">
               <div className="w-16 h-16 bg-blue-500/10 rounded-2xl flex items-center justify-center text-blue-400 mb-4 border border-blue-500/20"><PlayCircle size={30} /></div>
               <h3 className="text-xl font-bold text-white mb-2">Click a node to begin</h3>
-              <p className="text-gray-500 text-sm max-w-xs">Select any active node in the Skill Tree to watch its tutorial and unlock the AI assessment.</p>
+              <p className="text-gray-500 text-sm max-w-xs">Select any active node in the Skill Tree to watch its tutorial and take the AI assessment.</p>
             </div>
           ) : (
             <>
@@ -202,10 +265,11 @@ export default function LearningArena({ params }: { params: Promise<{ id: string
                 <div className="flex-1 bg-gray-950/50 border border-gray-800/50 rounded-2xl flex flex-col items-center justify-center p-10 text-center">
                   <Lock size={40} className="text-gray-700 mb-3" />
                   <h3 className="text-lg font-bold text-white mb-2">Locked</h3>
-                  <p className="text-gray-500 text-sm">Complete parent modules in the Skill Tree to unlock this one.</p>
+                  <p className="text-gray-500 text-sm">Complete parent modules to unlock this one.</p>
                 </div>
               ) : (
                 <>
+                  {/* Video Player */}
                   <div className="shrink-0 bg-black rounded-2xl border border-gray-800/50 overflow-hidden aspect-video relative shadow-2xl">
                     {videoLoading ? (
                       <div className="absolute inset-0 flex flex-col items-center justify-center text-gray-600">
@@ -217,15 +281,23 @@ export default function LearningArena({ params }: { params: Promise<{ id: string
                         allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen
                       />
                     ) : (
-                      <div className="absolute inset-0 flex items-center justify-center text-gray-700"><PlayCircle size={40} /></div>
+                      <div className="absolute inset-0 flex flex-col items-center justify-center text-gray-700 gap-2">
+                        <PlayCircle size={40} />
+                        <p className="text-xs text-gray-600">
+                          {!ytEnabled ? "YouTube recommendations are OFF" : "No video available"}
+                        </p>
+                      </div>
                     )}
                   </div>
+
                   {transcript && (
                     <div className="shrink-0 bg-blue-950/10 border border-blue-800/20 rounded-xl px-4 py-2 flex items-center gap-2">
                       <Sparkles size={12} className="text-blue-400" />
                       <p className="text-xs text-blue-300">Quiz will be generated from this video&apos;s actual content</p>
                     </div>
                   )}
+
+                  {/* AI Tutor Chat */}
                   <div className="flex-1 bg-gray-950/80 border border-gray-800/50 rounded-2xl overflow-hidden flex flex-col min-h-0 backdrop-blur-sm">
                     <div className="p-3 border-b border-gray-800/50 shrink-0 flex items-center gap-2">
                       <Sparkles size={13} className="text-purple-400" />
@@ -265,8 +337,8 @@ export default function LearningArena({ params }: { params: Promise<{ id: string
             </div>
           ) : activeNode.status === 'completed' ? (
             <div className="flex-1 flex flex-col items-center justify-center p-6 text-center">
-              <CheckCircle size={36} className="text-green-500 mb-3" />
-              <h3 className="font-bold text-white mb-1">Module Complete!</h3>
+                  <CheckCircle2 size={36} className="text-green-500 mb-3" />
+                  <h3 className="font-bold text-white mb-1">Module Complete!</h3>
               <p className="text-green-400 text-3xl font-black">{activeNode.score}%</p>
               <p className="text-gray-500 text-xs mt-3">Check the Skill Tree — downstream nodes are now unlocked!</p>
             </div>
@@ -276,7 +348,7 @@ export default function LearningArena({ params }: { params: Promise<{ id: string
                 <div className="flex flex-col items-center text-center flex-1 justify-center gap-4">
                   {activeNode.status === 'failed' && (
                     <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-4 w-full">
-                      <ShieldAlert className="text-red-400 mx-auto mb-2" size={22} />
+                      <AlertCircle className="text-red-400 mx-auto mb-2" size={22} />
                       <p className="text-red-300 font-bold text-sm">Previous: {activeNode.score}%</p>
                       <p className="text-gray-500 text-xs mt-1">Review the video and try again.</p>
                     </div>
@@ -297,24 +369,29 @@ export default function LearningArena({ params }: { params: Promise<{ id: string
                     <h4 className="font-bold text-white text-sm">Knowledge Check</h4>
                     <span className="text-xs bg-yellow-500/10 text-yellow-400 font-bold px-2 py-0.5 rounded border border-yellow-500/20">{quiz.length} Qs</span>
                   </div>
-                  {quiz.map((q, i) => (
-                    <div key={q.id} className="bg-gray-900/80 border border-gray-800/50 rounded-xl p-4">
-                      <p className="text-sm text-gray-200 font-medium mb-3"><span className="text-blue-400 font-bold">Q{i + 1}:</span> {q.question}</p>
-                      <div className="flex flex-col gap-2">
-                        {q.options.map(opt => (
-                          <button key={opt} onClick={() => setAnswers(a => ({ ...a, [q.id]: opt }))}
-                            className={`text-left text-xs p-3 rounded-lg border transition-all ${answers[q.id] === opt ? 'bg-blue-600/20 border-blue-500 text-white' : 'bg-gray-950 border-gray-800 text-gray-400 hover:border-gray-600'}`}
-                          >
-                            {opt}
-                          </button>
-                        ))}
+                  {quiz.map((q, i) => {
+                    // Resolve correct answer letter to option index
+                    const letter = String(q.answer).trim().toUpperCase();
+                    const correctIdx = ["A", "B", "C", "D"].includes(letter) ? letter.charCodeAt(0) - 65 : -1;
+                    return (
+                      <div key={q.id} className="bg-gray-900/80 border border-gray-800/50 rounded-xl p-4">
+                        <p className="text-sm text-gray-200 font-medium mb-3"><span className="text-blue-400 font-bold">Q{i + 1}:</span> {q.question}</p>
+                        <div className="flex flex-col gap-2">
+                          {q.options.map((opt, idx) => (
+                            <button key={idx} onClick={() => setAnswers(a => ({ ...a, [q.id]: idx }))}
+                              className={`text-left text-xs p-3 rounded-lg border transition-all ${answers[q.id] === idx ? 'bg-blue-600/20 border-blue-500 text-white' : 'bg-gray-950 border-gray-800 text-gray-400 hover:border-gray-600'}`}
+                            >
+                              <span className="font-bold text-gray-500 mr-2">{String.fromCharCode(65 + idx)}.</span>{opt}
+                            </button>
+                          ))}
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                   <button onClick={handleSubmitQuiz} disabled={evaluating || Object.keys(answers).length < quiz.length}
                     className="shrink-0 w-full bg-green-600 hover:bg-green-500 disabled:opacity-50 text-white font-bold py-3 rounded-xl flex items-center justify-center gap-2 transition"
                   >
-                    {evaluating ? <Loader2 className="animate-spin" /> : <><CheckCircle size={16} /> Submit &amp; Score</>}
+                    {evaluating ? <Loader2 className="animate-spin" /> : <><CheckCircle2 size={16} /> Submit &amp; Score</>}
                   </button>
                 </>
               )}

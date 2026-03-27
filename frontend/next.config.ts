@@ -4,6 +4,11 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   typescript: { ignoreBuildErrors: true },
   images: { unoptimized: true },
+  async redirects() {
+    return [
+      { source: '/dashboard', destination: '/subjects', permanent: true },
+    ];
+  },
 };
 
 export default nextConfig;
