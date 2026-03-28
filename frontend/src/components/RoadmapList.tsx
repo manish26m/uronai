@@ -14,9 +14,10 @@ interface RoadmapListProps {
   nodes: RoadmapNode[];
   onNodeClick?: (node: RoadmapNode) => void;
   activeNodeId?: string;
+  variant?: "vertical" | "horizontal";
 }
 
-export default function RoadmapList({ nodes, onNodeClick, activeNodeId }: RoadmapListProps) {
+export default function RoadmapList({ nodes, onNodeClick, activeNodeId, variant = "vertical" }: RoadmapListProps) {
   if (!nodes || nodes.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center h-full text-gray-600 p-8 text-center">
@@ -31,6 +32,44 @@ export default function RoadmapList({ nodes, onNodeClick, activeNodeId }: Roadma
     const match = title.match(/^(Week\s*\d+|Day\s*\d+|Phase\s*\d+|Module\s*\d+)[\s:–-]/i);
     return match ? match[1] : null;
   };
+
+  if (variant === "horizontal") {
+    let lastGroup: string | null = null;
+    return (
+      <div className="flex items-center gap-4 py-4 px-4 overflow-x-auto scrollbar-thin scrollbar-track-transparent scrollbar-thumb-gray-800 bg-gray-950/40 rounded-2xl border border-gray-800/30 shadow-inner">
+        {nodes.map((node, i) => {
+          const status = node.status || "locked";
+          const isActive = node.id === activeNodeId;
+          const group = getGroupLabel(node.title);
+          const isNewGroup = group && group !== lastGroup;
+          if (group) lastGroup = group;
+
+          let colorClass = "border-gray-800 text-gray-500 bg-gray-900/40";
+          let Icon = Lock;
+          if (status === "completed") { colorClass = "border-green-500/40 text-green-400 bg-green-500/5"; Icon = CheckCircle2; }
+          else if (status === "active") { colorClass = "border-blue-500/50 text-blue-400 bg-blue-500/10 shadow-[0_0_15px_-5px_rgba(59,130,246,0.5)]"; Icon = PlayCircle; }
+          else if (status === "failed") { colorClass = "border-red-500/40 text-red-400 bg-red-500/5"; Icon = AlertCircle; }
+
+          return (
+            <div key={node.id} className="flex items-center shrink-0">
+               {isNewGroup && i > 0 && <div className="h-10 w-px bg-gray-800 mx-4" />}
+               <button
+                onClick={() => status !== "locked" && onNodeClick?.(node)}
+                className={`Relative flex flex-col items-center gap-2 group transition-all ${status === "locked" ? "opacity-40" : "hover:scale-105 cursor-pointer"}`}
+              >
+                {isNewGroup && <span className="absolute -top-6 left-1/2 -translate-x-1/2 text-[9px] font-black text-purple-500 uppercase tracking-tighter whitespace-nowrap">{group}</span>}
+                <div className={`w-14 h-14 rounded-2xl border-2 flex items-center justify-center transition-all ${colorClass} ${isActive ? "border-blue-400 scale-110" : ""}`}>
+                  <Icon size={24} />
+                </div>
+                <span className={`text-[10px] font-bold max-w-[80px] text-center line-clamp-1 ${isActive ? "text-white" : "text-gray-500"}`}>{node.title.replace(/.*[:–-]\s*/, "")}</span>
+              </button>
+              {i < nodes.length - 1 && <div className={`w-8 h-0.5 ${status === "completed" ? "bg-green-500/20" : "bg-gray-800"}`} />}
+            </div>
+          );
+        })}
+      </div>
+    );
+  }
 
   // Find unique group labels to determine where to show dividers
   let lastGroup: string | null = "__none__";

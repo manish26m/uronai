@@ -45,6 +45,7 @@ def verify_password(plain: str, hashed: str) -> bool:
 
 # ─────────── Seed Admin ───────────
 def seed_admin():
+    # Primary admin from env
     admin = user_collection.find_one({"email": ADMIN_EMAIL})
     if not admin:
         user_collection.insert_one({
@@ -52,11 +53,12 @@ def seed_admin():
             "role": "admin", "avatar": None, "created_at": datetime.utcnow().isoformat(), "is_verified": True
         })
     else:
-        # Ensure role is admin and has password if it was somehow missing
-        updates = {"role": "admin"}
-        if not admin.get("hashed_password"):
-            updates["hashed_password"] = hash_password(ADMIN_PASS)
-        user_collection.update_one({"_id": admin["_id"]}, {"$set": updates})
+        user_collection.update_one({"_id": admin["_id"]}, {"$set": {"role": "admin"}})
+    
+    # Also elevate the official Gmail to admin for the user's convenience
+    if SMTP_EMAIL:
+        user_collection.update_one({"email": SMTP_EMAIL}, {"$set": {"role": "admin"}})
+
 seed_admin()
 
 def send_otp_email(email: str, otp: str):
@@ -364,7 +366,7 @@ def generate_detailed_roadmap(req: WizardRequest, user=Depends(get_current_user)
         
         if plist_match:
             try:
-                res = requests.get(f"https://youtube.googleapis.com/youtube/v3/playlistItems?part=snippet&maxResults=50&playlistId={plist_match.group(1)}&key={YT_API_KEY}", timeout=6)
+                res = requests.get(f"https://youtube.googleapis.com/youtube/v3/playlistItems?part=snippet&maxResults=250&playlistId={plist_match.group(1)}&key={YT_API_KEY}", timeout=10)
                 if res.status_code == 200:
                     for item in res.json().get("items", []):
                         try:
@@ -394,7 +396,14 @@ def generate_detailed_roadmap(req: WizardRequest, user=Depends(get_current_user)
     elif transcript_snippet:
         extra = f" Base the roadmap strictly and exclusively on this YouTube video transcript. Mirror its chapters and sections exactly without hallucinating external topics: {transcript_snippet}"
     
-    prompt = f"Create a highly detailed learning roadmap for '{req.goal}'. The timeframe is '{req.timeframe}'. YOU MUST ORGANIZE THIS INTO A STRICT TIMETABLE (e.g. prefix module titles with 'Week 1:', 'Day 1:', etc., evenly distributed across the timeframe). {extra} Output ONLY a raw JSON array of sequential module objects. Format exactly as: [{{\"id\":\"1\",\"title\":\"Week 1: Module Name\",\"description\":\"...\",\"depends_on\":[]}}]"
+    prompt = (
+        f"Create a highly detailed, comprehensive learning roadmap for '{req.goal}'. The timeframe is '{req.timeframe}'. "
+        f"YOU MUST ORGANIZE THIS INTO A STRICT TIMETABLE (e.g. prefix module titles with 'Week 1:', 'Day 1:', etc., evenly distributed). "
+        f"{extra}\n"
+        "FOR LARGE PLAYLISTS: You MUST generate exactly ONE module for EVERY video listed. Do not skip any. "
+        "Output ONLY a raw JSON array of sequential module objects. "
+        "Format exactly as: [{\"id\":\"1\",\"title\":\"Week 1: Module Name\",\"description\":\"...\"}]"
+    )
 
     try:
         text = generate_gemini_content(prompt, db_user.get("gemini_api_key", ""), "gemini-pro")
@@ -546,3 +555,44 @@ Your guidelines:
     except Exception as ex:
         print(f"Chat error: {ex}")
         raise HTTPException(status_code=500, detail="Mentor is temporarily unavailable.")
+
+# ─────────── ≡ Career & Certification Engine ───────────
+
+@app.get("/careers/matching")
+def career_matching(user=Depends(get_current_user)):
+    db_user = user_collection.find_one({"_id": ObjectId(user["id"])})
+    subjects = list(subject_collection.find({"user_id": user["id"]}))
+    
+    context = ""
+    for s in subjects:
+        comp = len([n for n in s.get("nodes", []) if n.get("status") == "completed"])
+        context += f"Subject: {s['title']}, Modules Completed: {comp}/{len(s.get('nodes',[]))}, Progress: {s.get('progress_percentage')}%.\n"
+    
+    prompt = f"Based on the following learning progress for user {user['name']}, suggest exactly 3 real-world job roles they are becoming ready for. For each, provide a 'readiness' percentage, 'missing_skills' list, and a 'growth_roadmap' advice string. Output ONLY raw JSON array: [{{ \"id\": 1, \"role\": \"...\", \"readiness\": 85, \"missing_skills\": [\"...\"], \"growth_roadmap\": \"...\" }}]. User Data:\n{context}"
+    
+    try:
+        text = generate_gemini_content(prompt, db_user.get("gemini_api_key", ""), "gemini-pro")
+        text = text.replace("```json", "").replace("```", "").strip()
+        s, e = text.find("["), text.rfind("]")
+        if s != -1 and e != -1:
+            return json.loads(text[s:e+1])
+    except: pass
+    return []
+
+@app.get("/certifications")
+def certifications_matching(user=Depends(get_current_user)):
+    db_user = user_collection.find_one({"_id": ObjectId(user["id"])})
+    subjects = list(subject_collection.find({"user_id": user["id"]}))
+    
+    context = ", ".join([s['title'] for s in subjects])
+    prompt = f"Based on these subjects the user is mastering: {context}. Suggest 3 relevant industry certifications (AWS, Google, Microsoft, etc.). For each include: 'provider', 'name', 'timeline' estimation, and 'match' percentage. Output ONLY raw JSON: [{{ \"id\": 1, \"provider\": \"...\", \"name\": \"...\", \"timeline\": \"...\", \"match\": 80 }}]"
+    
+    try:
+        text = generate_gemini_content(prompt, db_user.get("gemini_api_key", ""), "gemini-pro")
+        text = text.replace("```json", "").replace("```", "").strip()
+        s, e = text.find("["), text.rfind("]")
+        if s != -1 and e != -1:
+            return json.loads(text[s:e+1])
+    except: pass
+    return []
+

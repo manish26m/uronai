@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
-import { Sparkles, CheckCircle2, XCircle, BrainCircuit, ArrowRight, Loader2 } from "lucide-react";
+import { useState, useEffect } from "react";
+import { useSession } from "next-auth/react";
+import { Sparkles, CheckCircle2, XCircle, BrainCircuit, ArrowRight, Loader2, Trophy } from "lucide-react";
 
 interface Question {
   id: number;
@@ -12,11 +13,11 @@ interface Question {
 }
 
 interface QuizContext {
-  subject: string;
   questions: Question[];
 }
 
 export default function AIQuizPage() {
+  const { data: session } = useSession();
   const [topic, setTopic] = useState("");
   const [loading, setLoading] = useState(false);
   const [quiz, setQuiz] = useState<QuizContext | null>(null);
@@ -26,6 +27,9 @@ export default function AIQuizPage() {
   const [showExplanation, setShowExplanation] = useState(false);
   const [score, setScore] = useState(0);
   const [quizCompleted, setQuizCompleted] = useState(false);
+
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
+  const token = (session as any)?.backendToken;
 
   const generateQuiz = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -40,10 +44,11 @@ export default function AIQuizPage() {
     setSelectedOption(null);
 
     try {
-      const res = await fetch('http://127.0.0.1:8000/quizzes/generate', {
+      const res = await fetch(`${apiUrl}/quizzes/generate`, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {})
         },
         body: JSON.stringify({ subject: topic })
       });
@@ -142,7 +147,7 @@ export default function AIQuizPage() {
         <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
           <div className="bg-gray-950/50 p-4 border-b border-gray-800 flex justify-between items-center text-sm font-medium">
             <span className="text-gray-400">Question {currentQuestionIdx + 1} of {quiz.questions.length}</span>
-            <span className="text-purple-400">{quiz.subject}</span>
+            <span className="text-purple-400">{topic}</span>
           </div>
           
           <div className="p-6 md:p-8 space-y-6">
@@ -202,7 +207,7 @@ export default function AIQuizPage() {
             <Trophy className="w-12 h-12" />
           </div>
           <h2 className="text-3xl font-bold mb-2">Quiz Completed!</h2>
-          <p className="text-gray-400 mb-8">Here is how you performed on {quiz.subject}</p>
+          <p className="text-gray-400 mb-8">Here is how you performed on {topic}</p>
           
           <div className="bg-gray-950 border border-gray-800 p-6 rounded-2xl w-full max-w-sm mb-8">
             <div className="text-6xl font-black text-white mb-2">
@@ -227,16 +232,3 @@ export default function AIQuizPage() {
   );
 }
 
-// Temporary Trophy Icon component until lucide-react updates to include it if missing
-function Trophy({ className, ...props }: React.SVGProps<SVGSVGElement>) {
-  return (
-    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} {...props}>
-      <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"></path>
-      <path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"></path>
-      <path d="M4 22h16"></path>
-      <path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"></path>
-      <path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"></path>
-      <path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"></path>
-    </svg>
-  );
-}

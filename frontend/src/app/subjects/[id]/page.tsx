@@ -216,204 +216,168 @@ export default function LearningArena({ params }: { params: Promise<{ id: string
         </div>
       </div>
 
-      {/* 3-Zone Arena */}
-      <div className="flex-1 grid grid-cols-[260px_1fr_300px] gap-4 overflow-hidden min-h-0">
-
-        {/* LEFT: Skill Tree — clean vertical list */}
-        <div className="bg-gray-950/80 border border-gray-800/50 rounded-2xl overflow-hidden flex flex-col backdrop-blur-sm">
-          <div className="p-3 border-b border-gray-800/50 flex items-center gap-2 shrink-0">
-            <Sparkles size={13} className="text-purple-400" />
-            <span className="text-xs font-bold uppercase tracking-wider text-gray-400">Skill Tree</span>
-            <span className="ml-auto text-xs text-gray-600">{subject.nodes.length} nodes</span>
-          </div>
-          <div className="flex-1 min-h-0">
-            <RoadmapList
-              nodes={subject.nodes.map(n => ({ id: n.id, title: n.title, status: n.status, description: n.description }))}
-              onNodeClick={(n) => {
-                const full = subject.nodes.find(x => x.id === n.id);
-                if (full) handleNodeClick(full);
-              }}
-              activeNodeId={activeNode?.id}
-            />
-          </div>
+      {/* 3-Zone Arena Redesign: Top-Horizontal Roadmap, Center-Video, Right-Sidebar (Chat+Quiz) */}
+      <div className="flex-1 flex flex-col gap-4 min-h-0 overflow-hidden">
+        
+        {/* TOP: Horizontal Roadmap */}
+        <div className="shrink-0 pt-2 pb-1">
+          <RoadmapList
+            variant="horizontal"
+            nodes={subject.nodes.map(n => ({ id: n.id, title: n.title, status: n.status, description: n.description }))}
+            onNodeClick={(n) => {
+              const full = subject.nodes.find(x => x.id === n.id);
+              if (full) handleNodeClick(full);
+            }}
+            activeNodeId={activeNode?.id}
+          />
         </div>
 
-        {/* CENTER: Content */}
-        <div className="flex flex-col gap-3 overflow-hidden min-h-0">
-          {!activeNode ? (
-            <div className="flex-1 bg-gray-950/50 border border-dashed border-gray-800/50 rounded-2xl flex flex-col items-center justify-center text-center p-10">
-              <div className="w-16 h-16 bg-blue-500/10 rounded-2xl flex items-center justify-center text-blue-400 mb-4 border border-blue-500/20"><PlayCircle size={30} /></div>
-              <h3 className="text-xl font-bold text-white mb-2">Click a node to begin</h3>
-              <p className="text-gray-500 text-sm max-w-xs">Select any active node in the Skill Tree to watch its tutorial and take the AI assessment.</p>
-            </div>
-          ) : (
-            <>
-              <div className={`shrink-0 flex items-center gap-3 p-4 rounded-xl border ${activeNode.status === 'completed' ? 'border-green-500/20 bg-green-500/5' : activeNode.status === 'failed' ? 'border-red-500/20 bg-red-500/5' : activeNode.status === 'active' ? 'border-blue-500/20 bg-blue-500/5' : 'border-gray-800 bg-gray-900/50'}`}>
-                <div className={`p-2 rounded-lg ${statusColor[activeNode.status as keyof typeof statusColor] || statusColor.locked}`}>
-                  {statusIcon[activeNode.status as keyof typeof statusIcon]}
-                </div>
-                <div className="flex-1">
-                  <p className="text-xs font-bold uppercase tracking-widest text-gray-500">{activeNode.status} MODULE</p>
-                  <h2 className="text-base font-bold text-white line-clamp-1">{activeNode.title}</h2>
-                </div>
-                {activeNode.score !== undefined && activeNode.score !== null && (
-                  <div className={`text-xl font-black ${activeNode.score >= 60 ? 'text-green-400' : 'text-red-400'}`}>{activeNode.score}%</div>
-                )}
+        <div className="flex-1 grid grid-cols-[1fr_350px] gap-4 min-h-0 overflow-hidden">
+          
+          {/* LEFT/CENTER: Content (Video + Description) */}
+          <div className="flex flex-col gap-3 overflow-hidden min-h-0">
+            {!activeNode ? (
+              <div className="flex-1 bg-gray-950/50 border border-dashed border-gray-800/50 rounded-2xl flex flex-col items-center justify-center text-center p-10">
+                <div className="w-16 h-16 bg-blue-500/10 rounded-2xl flex items-center justify-center text-blue-400 mb-4 border border-blue-500/20"><PlayCircle size={30} /></div>
+                <h3 className="text-xl font-bold text-white mb-2">Click a module to begin</h3>
+                <p className="text-gray-500 text-sm max-w-xs">Select any unlocked module from the timetable above to watch the tutorial and start learning.</p>
               </div>
-
-              {activeNode.status === 'locked' ? (
-                <div className="flex-1 bg-gray-950/50 border border-gray-800/50 rounded-2xl flex flex-col items-center justify-center p-10 text-center">
-                  <Lock size={40} className="text-gray-700 mb-3" />
-                  <h3 className="text-lg font-bold text-white mb-2">Locked</h3>
-                  <p className="text-gray-500 text-sm">Complete parent modules to unlock this one.</p>
+            ) : (
+              <>
+                <div className={`shrink-0 flex items-center gap-3 p-3 rounded-xl border ${activeNode.status === 'completed' ? 'border-green-500/20 bg-green-500/5' : activeNode.status === 'failed' ? 'border-red-500/20 bg-red-500/5' : activeNode.status === 'active' ? 'border-blue-500/20 bg-blue-500/5' : 'border-gray-800 bg-gray-900/50'}`}>
+                  <div className={`p-2 rounded-lg ${statusColor[activeNode.status as keyof typeof statusColor] || statusColor.locked}`}>
+                    {statusIcon[activeNode.status as keyof typeof statusIcon]}
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-gray-500">{activeNode.status} MODULE</p>
+                    <h2 className="text-sm font-bold text-white line-clamp-1">{activeNode.title}</h2>
+                  </div>
+                  {activeNode.score !== undefined && activeNode.score !== null && (
+                    <div className={`text-lg font-black ${activeNode.score >= 60 ? 'text-green-400' : 'text-red-400'}`}>{activeNode.score}%</div>
+                  )}
                 </div>
-              ) : (
-                <>
-                  {/* Video Player */}
-                  <div className="shrink-0 bg-black rounded-2xl border border-gray-800/50 overflow-hidden aspect-video relative shadow-2xl">
-                    {videoLoading ? (
-                      <div className="absolute inset-0 flex flex-col items-center justify-center text-gray-600">
-                        <Loader2 className="animate-spin mb-2" size={28} /><span className="text-sm">Finding best tutorial...</span>
-                      </div>
-                    ) : videoId ? (
-                      <iframe width="100%" height="100%" className="absolute inset-0 border-0"
-                        src={`https://www.youtube.com/embed/${videoId}`} title={activeNode.title}
-                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen
-                      />
-                    ) : (
-                      <div className="absolute inset-0 flex flex-col items-center justify-center text-gray-700 gap-2">
-                        <PlayCircle size={40} />
-                        <p className="text-xs text-gray-600">
-                          {!ytEnabled ? "YouTube recommendations are OFF" : "No video available"}
-                        </p>
+
+                {activeNode.status === 'locked' ? (
+                  <div className="flex-1 bg-gray-950/50 border border-gray-800/50 rounded-2xl flex flex-col items-center justify-center p-10 text-center">
+                    <Lock size={40} className="text-gray-700 mb-3" />
+                    <h3 className="text-lg font-bold text-white mb-2">Locked</h3>
+                    <p className="text-gray-500 text-sm">Complete previous modules to unlock this one.</p>
+                  </div>
+                ) : (
+                  <div className="flex-1 flex flex-col gap-3 min-h-0">
+                    <div className="shrink-0 bg-black rounded-2xl border border-gray-800/50 overflow-hidden aspect-video relative shadow-2xl">
+                      {videoLoading ? (
+                        <div className="absolute inset-0 flex flex-col items-center justify-center text-gray-600">
+                          <Loader2 className="animate-spin mb-2" size={28} /><span className="text-sm">Finding best tutorial...</span>
+                        </div>
+                      ) : videoId ? (
+                        <iframe width="100%" height="100%" className="absolute inset-0 border-0"
+                          src={`https://www.youtube.com/embed/${videoId}`} title={activeNode.title}
+                          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen
+                        />
+                      ) : (
+                        <div className="absolute inset-0 flex flex-col items-center justify-center text-gray-700 gap-2">
+                          <PlayCircle size={40} />
+                          <p className="text-xs text-gray-600">
+                            {!ytEnabled ? "YouTube recommendations are OFF" : "No video available"}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                    
+                    {activeNode.description && (
+                      <div className="bg-gray-900/50 border border-gray-800/50 rounded-xl p-4 overflow-y-auto">
+                        <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Module Description</h4>
+                        <p className="text-sm text-gray-300 leading-relaxed">{activeNode.description}</p>
                       </div>
                     )}
                   </div>
-
-                  {transcript && (
-                    <div className="shrink-0 bg-blue-950/10 border border-blue-800/20 rounded-xl px-4 py-2 flex items-center gap-2">
-                      <Sparkles size={12} className="text-blue-400" />
-                      <p className="text-xs text-blue-300">Quiz will be generated from this video&apos;s actual content</p>
-                    </div>
-                  )}
-
-                  {/* AI Tutor Chat */}
-                  <div className="flex-1 bg-gray-950/80 border border-gray-800/50 rounded-2xl overflow-hidden flex flex-col min-h-0 backdrop-blur-sm">
-                    <div className="p-3 border-b border-gray-800/50 shrink-0 flex items-center gap-2">
-                      <Sparkles size={13} className="text-purple-400" />
-                      <span className="text-xs font-bold uppercase tracking-wider text-purple-400">AI Tutor</span>
-                    </div>
-                    <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-3 text-sm">
-                      {chatHistory.length === 0 && <p className="text-gray-600 italic text-center mt-4 text-xs">Ask anything about <strong className="text-gray-400">{activeNode.title}</strong></p>}
-                      {chatHistory.map((m, i) => (
-                        <div key={i} className={`p-3 rounded-xl max-w-[90%] leading-relaxed text-sm ${m.role === 'user' ? 'bg-blue-600/15 text-blue-100 self-end border border-blue-500/20' : 'bg-gray-800/80 text-gray-200 self-start border border-gray-700/50'}`}>{m.content}</div>
-                      ))}
-                      {chatLoading && <div className="self-start bg-gray-800 rounded-xl p-3 border border-gray-700"><Loader2 className="animate-spin text-gray-500" size={14} /></div>}
-                    </div>
-                    <form onSubmit={handleChat} className="p-3 border-t border-gray-800/50 flex gap-2 bg-black/30 shrink-0">
-                      <input value={chatInput} onChange={e => setChatInput(e.target.value)} placeholder={`Ask about "${activeNode.title}"...`}
-                        className="flex-1 bg-gray-900 border border-gray-800 rounded-lg px-4 py-2 text-sm text-white focus:outline-none focus:border-purple-500 placeholder-gray-600 transition"
-                      />
-                      <button type="submit" disabled={chatLoading || !chatInput.trim()} className="bg-purple-600 hover:bg-purple-500 disabled:opacity-50 text-white p-2 rounded-lg transition"><Send size={15} /></button>
-                    </form>
-                  </div>
-                </>
-              )}
-            </>
-          )}
-        </div>
-
-        {/* RIGHT: Assessment */}
-        <div className="bg-gray-950/80 border border-gray-800/50 rounded-2xl overflow-hidden flex flex-col backdrop-blur-sm">
-          <div className="p-4 border-b border-gray-800/50 flex items-center gap-2 shrink-0">
-            <Trophy size={13} className="text-yellow-400" />
-            <span className="text-xs font-bold uppercase tracking-wider text-yellow-400">Assessment</span>
+                )}
+              </>
+            )}
           </div>
 
-          {!activeNode || activeNode.status === 'locked' ? (
-            <div className="flex-1 flex flex-col items-center justify-center p-6 text-center">
-              <Lock size={28} className="text-gray-700 mb-3" />
-              <p className="text-gray-500 text-sm">Select an active node to take its evaluation quiz.</p>
+          {/* RIGHT: Sidebar (Chat + Assessment) */}
+          <div className="flex flex-col gap-4 overflow-hidden min-h-0">
+            {/* AI Tutor Chat */}
+            <div className={`flex-[1.2] flex flex-col bg-gray-950/80 border border-gray-800/50 rounded-2xl overflow-hidden backdrop-blur-sm ${!activeNode || activeNode.status === 'locked' ? 'opacity-50 grayscale pointer-events-none' : ''}`}>
+              <div className="p-3 border-b border-gray-800/50 shrink-0 flex items-center gap-2">
+                <Sparkles size={13} className="text-purple-400" />
+                <span className="text-xs font-bold uppercase tracking-wider text-purple-400">AI Tutor</span>
+              </div>
+              <div className="flex-1 overflow-y-auto p-3 flex flex-col gap-3 text-xs scrollbar-thin scrollbar-track-transparent scrollbar-thumb-gray-800">
+                {chatHistory.length === 0 && activeNode && <p className="text-gray-600 italic text-center mt-4">Ask anything about <strong className="text-gray-400">{activeNode.title}</strong></p>}
+                {chatHistory.map((m, i) => (
+                  <div key={i} className={`p-2.5 rounded-xl max-w-[90%] leading-relaxed ${m.role === 'user' ? 'bg-blue-600/15 text-blue-100 self-end border border-blue-500/20' : 'bg-gray-800/80 text-gray-200 self-start border border-gray-700/50'}`}>{m.content}</div>
+                ))}
+                {chatLoading && <div className="self-start bg-gray-800 rounded-xl p-2 border border-gray-700"><Loader2 className="animate-spin text-gray-500" size={12} /></div>}
+              </div>
+              <form onSubmit={handleChat} className="p-2 border-t border-gray-800/50 flex gap-2 bg-black/30 shrink-0">
+                <input value={chatInput} onChange={e => setChatInput(e.target.value)} placeholder="Ask a question..."
+                  className="flex-1 bg-gray-900 border border-gray-800 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-purple-500 placeholder-gray-600"
+                />
+                <button type="submit" disabled={chatLoading || !chatInput.trim()} className="bg-purple-600 hover:bg-purple-500 disabled:opacity-50 text-white p-1.5 rounded-lg transition"><Send size={14} /></button>
+              </form>
             </div>
-          ) : activeNode.status === 'completed' ? (
-            <div className="flex-1 flex flex-col items-center justify-center p-6 text-center">
-                  <CheckCircle2 size={36} className="text-green-500 mb-3" />
-                  <h3 className="font-bold text-white mb-1">Module Complete!</h3>
-              <p className="text-green-400 text-3xl font-black">{activeNode.score}%</p>
-              <p className="text-gray-500 text-xs mt-3">Check the Skill Tree — downstream nodes are now unlocked!</p>
-            </div>
-          ) : (
-            <div className="flex-1 overflow-y-auto flex flex-col p-4 gap-4 min-h-0">
-              {!quiz && !quizResult && (
-                <div className="flex flex-col items-center text-center flex-1 justify-center gap-4">
-                  {activeNode.status === 'failed' && (
-                    <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-4 w-full">
-                      <AlertCircle className="text-red-400 mx-auto mb-2" size={22} />
-                      <p className="text-red-300 font-bold text-sm">Previous: {activeNode.score}%</p>
-                      <p className="text-gray-500 text-xs mt-1">Review the video and try again.</p>
-                    </div>
-                  )}
-                  {transcript && <p className="text-xs text-blue-400 bg-blue-950/20 border border-blue-800/30 rounded-lg p-3">Quiz questions are pulled from the actual video content above.</p>}
-                  <p className="text-gray-500 text-sm">Watch the video, then take the AI quiz to unlock the next module.</p>
-                  <button onClick={handleStartQuiz} disabled={quizLoading}
-                    className="w-full bg-gradient-to-r from-yellow-600 to-orange-600 hover:from-yellow-500 hover:to-orange-500 disabled:opacity-50 text-white font-bold py-4 rounded-xl flex items-center justify-center gap-2 transition shadow-lg shadow-yellow-900/20"
-                  >
-                    {quizLoading ? <Loader2 className="animate-spin" /> : <><Trophy size={18} /> Start Evaluation Quiz</>}
-                  </button>
-                </div>
-              )}
 
-              {quiz && !quizResult && (
-                <>
-                  <div className="flex justify-between items-center shrink-0">
-                    <h4 className="font-bold text-white text-sm">Knowledge Check</h4>
-                    <span className="text-xs bg-yellow-500/10 text-yellow-400 font-bold px-2 py-0.5 rounded border border-yellow-500/20">{quiz.length} Qs</span>
+            {/* Assessment Quiz */}
+            <div className={`flex-1 flex flex-col bg-gray-950/80 border border-gray-800/50 rounded-2xl overflow-hidden backdrop-blur-sm ${!activeNode || activeNode.status === 'locked' ? 'opacity-50 grayscale pointer-events-none' : ''}`}>
+              <div className="p-3 border-b border-gray-800/50 flex items-center gap-2 shrink-0">
+                <Trophy size={13} className="text-yellow-400" />
+                <span className="text-xs font-bold uppercase tracking-wider text-yellow-400">Assessment</span>
+              </div>
+              
+              <div className="flex-1 overflow-y-auto p-3 flex flex-col gap-3 min-h-0 scrollbar-thin scrollbar-track-transparent scrollbar-thumb-gray-800">
+                {activeNode?.status === 'completed' ? (
+                  <div className="flex-1 flex flex-col items-center justify-center text-center">
+                    <CheckCircle2 size={30} className="text-green-500 mb-2" />
+                    <h3 className="text-sm font-bold text-white mb-1">Passed!</h3>
+                    <p className="text-green-400 text-2xl font-black">{activeNode.score}%</p>
                   </div>
-                  {quiz.map((q, i) => {
-                    // Resolve correct answer letter to option index
-                    const letter = String(q.answer).trim().toUpperCase();
-                    const correctIdx = ["A", "B", "C", "D"].includes(letter) ? letter.charCodeAt(0) - 65 : -1;
-                    return (
-                      <div key={q.id} className="bg-gray-900/80 border border-gray-800/50 rounded-xl p-4">
-                        <p className="text-sm text-gray-200 font-medium mb-3"><span className="text-blue-400 font-bold">Q{i + 1}:</span> {q.question}</p>
-                        <div className="flex flex-col gap-2">
-                          {q.options.map((opt, idx) => (
-                            <button key={idx} onClick={() => setAnswers(a => ({ ...a, [q.id]: idx }))}
-                              className={`text-left text-xs p-3 rounded-lg border transition-all ${answers[q.id] === idx ? 'bg-blue-600/20 border-blue-500 text-white' : 'bg-gray-950 border-gray-800 text-gray-400 hover:border-gray-600'}`}
+                ) : !quiz && !quizResult ? (
+                  <div className="flex flex-col items-center text-center flex-1 justify-center gap-3">
+                    <Trophy size={30} className="text-gray-700 mb-1" />
+                    <p className="text-gray-500 text-xs">Ready for the eval?</p>
+                    <button onClick={handleStartQuiz} disabled={quizLoading} className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 rounded-xl transition flex items-center justify-center gap-2 text-xs">
+                      {quizLoading ? <Loader2 className="animate-spin" size={14} /> : <Sparkles size={14} />} Start Quiz
+                    </button>
+                  </div>
+                ) : quiz && !quizResult ? (
+                  <div className="space-y-4">
+                    {quiz.map((q, qIdx) => (
+                      <div key={q.id} className="space-y-2">
+                        <p className="text-xs font-semibold text-gray-300">Q{qIdx + 1}: {q.question}</p>
+                        <div className="grid gap-1.5">
+                          {q.options.map((opt, oIdx) => (
+                            <button key={oIdx} onClick={() => setAnswers(prev => ({ ...prev, [q.id]: oIdx }))}
+                              className={`text-left p-2 rounded-lg text-[10px] border transition-all ${answers[q.id] === oIdx ? 'bg-blue-600/20 border-blue-500 text-blue-100' : 'bg-gray-900 border-gray-800 text-gray-400 hover:border-gray-700'}`}
                             >
-                              <span className="font-bold text-gray-500 mr-2">{String.fromCharCode(65 + idx)}.</span>{opt}
+                              {opt}
                             </button>
                           ))}
                         </div>
                       </div>
-                    );
-                  })}
-                  <button onClick={handleSubmitQuiz} disabled={evaluating || Object.keys(answers).length < quiz.length}
-                    className="shrink-0 w-full bg-green-600 hover:bg-green-500 disabled:opacity-50 text-white font-bold py-3 rounded-xl flex items-center justify-center gap-2 transition"
-                  >
-                    {evaluating ? <Loader2 className="animate-spin" /> : <><CheckCircle2 size={16} /> Submit &amp; Score</>}
-                  </button>
-                </>
-              )}
-
-              {quizResult && (
-                <div className="flex-1 flex flex-col items-center justify-center text-center gap-4">
-                  <div className={`w-24 h-24 rounded-full border-4 flex items-center justify-center text-3xl font-black ${quizResult.score >= 60 ? 'border-green-500 text-green-400 bg-green-500/10' : 'border-red-500 text-red-400 bg-red-500/10'}`}>
-                    {quizResult.score}%
+                    ))}
+                    <button onClick={handleSubmitQuiz} disabled={evaluating || Object.keys(answers).length < quiz.length}
+                      className="w-full bg-green-600 hover:bg-green-500 disabled:bg-gray-800 disabled:text-gray-600 text-white font-bold py-2 rounded-xl transition mt-4 text-xs"
+                    >
+                      {evaluating ? <Loader2 className="animate-spin" size={14} /> : "Submit Answers"}
+                    </button>
                   </div>
-                  <h3 className="text-xl font-bold text-white">{quizResult.score >= 80 ? "Excellent! 🎉" : quizResult.score >= 60 ? "Passed! ✅" : "Failed 😞"}</h3>
-                  <p className="text-gray-400 text-sm">{quizResult.correct}/{quizResult.total} correct</p>
-                  {quizResult.score < 60 && <p className="text-gray-500 text-xs px-4">Two remedial nodes added to your skill tree. Complete them first.</p>}
-                  {quizResult.score >= 60 && <p className="text-gray-500 text-xs">Next modules are now unlocked in the Skill Tree!</p>}
-                  <button onClick={() => { setQuiz(null); setQuizResult(null); setAnswers({}); }}
-                    className="w-full border border-gray-700 hover:bg-gray-800 text-white font-bold py-3 rounded-xl transition text-sm"
-                  >
-                    Retake Quiz
-                  </button>
-                </div>
-              )}
+                ) : quizResult && (
+                  <div className="flex-1 flex flex-col items-center justify-center text-center gap-2">
+                    <div className={`p-3 rounded-full ${quizResult.score >= 60 ? 'bg-green-500/10 text-green-500' : 'bg-red-500/10 text-red-500'}`}>
+                      {quizResult.score >= 60 ? <Trophy size={32} /> : <AlertCircle size={32} />}
+                    </div>
+                    <h3 className="text-lg font-black text-white">{quizResult.score}%</h3>
+                    <p className="text-xs text-gray-500">{quizResult.correct} / {quizResult.total} correct</p>
+                    <button onClick={() => { setQuiz(null); setQuizResult(null); setAnswers({}); }} className="mt-2 text-xs text-blue-400 hover:underline">Try again</button>
+                  </div>
+                )}
+              </div>
             </div>
-          )}
+          </div>
+
         </div>
       </div>
     </div>
