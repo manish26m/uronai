@@ -16,7 +16,7 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
-      <body className={`${inter.variable} ${sora.variable} font-sans antialiased bg-[#07080f] text-white min-h-screen`}>
+      <body className={`${inter.variable} ${sora.variable} font-sans antialiased bg-[#0c0505] text-white min-h-screen`}>
         <SessionProvider>
           <AppShell>{children}</AppShell>
         </SessionProvider>

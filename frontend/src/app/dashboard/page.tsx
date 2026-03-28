@@ -17,7 +17,7 @@ export default function DashboardPage() {
   if (status === "loading") {
     return (
       <div className="flex justify-center items-center h-[80vh]">
-        <Loader2 className="animate-spin text-blue-500" size={48} />
+        <Loader2 className="animate-spin text-red-500" size={48} />
       </div>
     );
   }

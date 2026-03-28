@@ -101,7 +101,7 @@ export default function AIQuizPage() {
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
         <div>
           <div className="flex items-center gap-3 mb-2">
-            <div className="bg-purple-500/20 text-purple-500 p-2 rounded-lg">
+            <div className="bg-amber-500/20 text-amber-500 p-2 rounded-lg">
               <Sparkles size={28} />
             </div>
             <h2 className="text-3xl font-bold tracking-tight">AI Generated Quizzes</h2>
@@ -113,14 +113,14 @@ export default function AIQuizPage() {
           <input 
             type="text" 
             placeholder="e.g. React Hooks, AWS UI..." 
-            className="flex-1 md:w-64 bg-gray-900 border border-gray-800 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-purple-500 transition-colors"
+            className="flex-1 md:w-64 bg-gray-900 border border-gray-800 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-amber-500 transition-colors"
             value={topic}
             onChange={(e) => setTopic(e.target.value)}
           />
           <button 
             type="submit" 
             disabled={loading || !topic}
-            className="bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center justify-center min-w-[120px]"
+            className="bg-amber-600 hover:bg-amber-700 disabled:opacity-50 text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center justify-center min-w-[120px]"
           >
             {loading ? <Loader2 className="animate-spin" size={20} /> : "Generate"}
           </button>
@@ -137,7 +137,7 @@ export default function AIQuizPage() {
 
       {loading && (
         <div className="bg-gray-900 border border-gray-800 rounded-xl p-16 flex flex-col items-center justify-center text-center">
-          <Loader2 className="animate-spin text-purple-500 mb-4" size={48} />
+          <Loader2 className="animate-spin text-amber-500 mb-4" size={48} />
           <h3 className="text-xl font-bold mb-2">Synthesizing Knowledge...</h3>
           <p className="text-gray-400">Crafting the perfect questions for {topic}</p>
         </div>
@@ -147,7 +147,7 @@ export default function AIQuizPage() {
         <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
           <div className="bg-gray-950/50 p-4 border-b border-gray-800 flex justify-between items-center text-sm font-medium">
             <span className="text-gray-400">Question {currentQuestionIdx + 1} of {quiz.questions.length}</span>
-            <span className="text-purple-400">{topic}</span>
+            <span className="text-amber-400">{topic}</span>
           </div>
           
           <div className="p-6 md:p-8 space-y-6">
@@ -160,7 +160,7 @@ export default function AIQuizPage() {
                 const isSelected = selectedOption === option;
                 const isCorrect = option === quiz.questions[currentQuestionIdx].answer;
                 
-                let buttonStyle = "bg-gray-950 border-gray-800 hover:border-purple-500 hover:bg-purple-500/5 text-gray-200";
+                let buttonStyle = "bg-gray-950 border-gray-800 hover:border-amber-500 hover:bg-amber-500/5 text-gray-200";
                 
                 if (showExplanation) {
                   if (isCorrect) buttonStyle = "bg-green-500/10 border-green-500 text-green-400";
@@ -184,13 +184,13 @@ export default function AIQuizPage() {
             </div>
             
             {showExplanation && (
-              <div className="mt-6 p-4 rounded-xl bg-blue-900/20 border border-blue-500/30 text-blue-100 animate-in fade-in slide-in-from-bottom-2">
-                <p className="font-semibold text-blue-400 mb-1">Explanation</p>
+              <div className="mt-6 p-4 rounded-xl bg-red-900/20 border border-red-500/30 text-red-100 animate-in fade-in slide-in-from-bottom-2">
+                <p className="font-semibold text-red-400 mb-1">Explanation</p>
                 <p>{quiz.questions[currentQuestionIdx].explanation}</p>
                 
                 <button 
                   onClick={nextQuestion}
-                  className="mt-4 flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors"
+                  className="mt-4 flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg font-medium transition-colors"
                 >
                   {currentQuestionIdx < quiz.questions.length - 1 ? "Next Question" : "See Results"} 
                   <ArrowRight size={18} />
@@ -203,7 +203,7 @@ export default function AIQuizPage() {
 
       {quizCompleted && quiz && (
         <div className="bg-gray-900 border border-gray-800 rounded-xl p-10 text-center flex flex-col items-center">
-          <div className="w-24 h-24 bg-purple-500/20 text-purple-500 rounded-full flex items-center justify-center mb-6">
+          <div className="w-24 h-24 bg-amber-500/20 text-amber-500 rounded-full flex items-center justify-center mb-6">
             <Trophy className="w-12 h-12" />
           </div>
           <h2 className="text-3xl font-bold mb-2">Quiz Completed!</h2>

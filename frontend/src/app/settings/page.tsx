@@ -64,9 +64,9 @@ export default function SettingsPage() {
         </div>
         <div className="flex items-center gap-4">
           {session?.user?.image ? (
-            <img src={session.user.image} className="w-16 h-16 rounded-2xl ring-2 ring-blue-500/30 object-cover" alt="" />
+            <img src={session.user.image} className="w-16 h-16 rounded-2xl ring-2 ring-red-500/30 object-cover" alt="" />
           ) : (
-            <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-600 to-purple-600 flex items-center justify-center text-white text-2xl font-black">
+            <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-red-600 to-amber-600 flex items-center justify-center text-white text-2xl font-black">
               {userName[0]}
             </div>
           )}
@@ -75,8 +75,8 @@ export default function SettingsPage() {
             <p className="text-gray-500 text-sm">{userEmail}</p>
             <span className={`inline-flex items-center gap-1.5 mt-1.5 text-xs font-bold px-2.5 py-1 rounded-lg border ${
               userRole === "admin"
-                ? "bg-purple-500/10 text-purple-400 border-purple-500/20"
-                : "bg-blue-500/10 text-blue-400 border-blue-500/20"
+                ? "bg-amber-500/10 text-amber-400 border-amber-500/20"
+                : "bg-red-500/10 text-red-400 border-red-500/20"
             }`}>
               <Shield size={11} />
               {userRole === "admin" ? "Admin" : "Student"}
@@ -89,7 +89,7 @@ export default function SettingsPage() {
       <div className="bg-gray-900/80 border border-gray-800 rounded-2xl overflow-hidden">
         <div className="p-6 border-b border-gray-800/50">
           <div className="flex items-center gap-3">
-            <div className="p-2.5 bg-blue-500/10 text-blue-400 rounded-xl border border-blue-500/20">
+            <div className="p-2.5 bg-red-500/10 text-red-400 rounded-xl border border-red-500/20">
               <Key size={18} />
             </div>
             <div>
@@ -108,14 +108,14 @@ export default function SettingsPage() {
                   value={apiKey}
                   onChange={e => setApiKey(e.target.value)}
                   placeholder="AIzaSy................................"
-                  className="w-full bg-gray-950 border border-gray-700 focus:border-blue-500 rounded-xl pl-10 pr-4 py-3.5 text-white font-mono text-sm focus:outline-none transition-all placeholder-gray-700"
+                  className="w-full bg-gray-950 border border-gray-700 focus:border-red-500 rounded-xl pl-10 pr-4 py-3.5 text-white font-mono text-sm focus:outline-none transition-all placeholder-gray-700"
                 />
                 <Key size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-600" />
               </div>
               <p className="text-xs text-gray-600 mt-2 flex items-center gap-1.5">
                 Free keys from
                 <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noreferrer"
-                  className="text-blue-400 hover:text-blue-300 underline flex items-center gap-1"
+                  className="text-red-400 hover:text-red-300 underline flex items-center gap-1"
                 >
                   Google AI Studio <ExternalLink size={10} />
                 </a>
@@ -125,7 +125,7 @@ export default function SettingsPage() {
 
             <div className="flex items-center gap-4">
               <button type="submit" disabled={loading}
-                className="flex items-center gap-2 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white font-bold px-6 py-3 rounded-xl transition-all shadow-lg shadow-blue-900/30 hover:scale-105"
+                className="flex items-center gap-2 bg-red-600 hover:bg-red-500 disabled:opacity-50 text-white font-bold px-6 py-3 rounded-xl transition-all shadow-lg shadow-red-900/30 hover:scale-105"
               >
                 {loading ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
                 Save Key
@@ -147,7 +147,7 @@ export default function SettingsPage() {
 
       {/* Info */}
       <div className="flex items-start gap-4 bg-gray-900/50 border border-gray-800 rounded-2xl p-5">
-        <Sparkles size={15} className="text-blue-400 shrink-0 mt-0.5" />
+        <Sparkles size={15} className="text-red-400 shrink-0 mt-0.5" />
         <div>
           <h4 className="text-sm font-bold text-white mb-1">How does the API key work?</h4>
           <p className="text-sm text-gray-500 leading-relaxed">

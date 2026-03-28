@@ -47,7 +47,7 @@ export default function RoadmapList({ nodes, onNodeClick, activeNodeId, variant 
           let colorClass = "border-gray-800 text-gray-500 bg-gray-900/40";
           let Icon = Lock;
           if (status === "completed") { colorClass = "border-green-500/40 text-green-400 bg-green-500/5"; Icon = CheckCircle2; }
-          else if (status === "active") { colorClass = "border-blue-500/50 text-blue-400 bg-blue-500/10 shadow-[0_0_15px_-5px_rgba(59,130,246,0.5)]"; Icon = PlayCircle; }
+          else if (status === "active") { colorClass = "border-red-500/50 text-red-400 bg-red-500/10 shadow-[0_0_15px_-5px_rgba(59,130,246,0.5)]"; Icon = PlayCircle; }
           else if (status === "failed") { colorClass = "border-red-500/40 text-red-400 bg-red-500/5"; Icon = AlertCircle; }
 
           return (
@@ -57,8 +57,8 @@ export default function RoadmapList({ nodes, onNodeClick, activeNodeId, variant 
                 onClick={() => status !== "locked" && onNodeClick?.(node)}
                 className={`Relative flex flex-col items-center gap-2 group transition-all ${status === "locked" ? "opacity-40" : "hover:scale-105 cursor-pointer"}`}
               >
-                {isNewGroup && <span className="absolute -top-6 left-1/2 -translate-x-1/2 text-[9px] font-black text-purple-500 uppercase tracking-tighter whitespace-nowrap">{group}</span>}
-                <div className={`w-14 h-14 rounded-2xl border-2 flex items-center justify-center transition-all ${colorClass} ${isActive ? "border-blue-400 scale-110" : ""}`}>
+                {isNewGroup && <span className="absolute -top-6 left-1/2 -translate-x-1/2 text-[9px] font-black text-amber-500 uppercase tracking-tighter whitespace-nowrap">{group}</span>}
+                <div className={`w-14 h-14 rounded-2xl border-2 flex items-center justify-center transition-all ${colorClass} ${isActive ? "border-red-400 scale-110" : ""}`}>
                   <Icon size={24} />
                 </div>
                 <span className={`text-[10px] font-bold max-w-[80px] text-center line-clamp-1 ${isActive ? "text-white" : "text-gray-500"}`}>{node.title.replace(/.*[:–-]\s*/, "")}</span>
@@ -94,10 +94,10 @@ export default function RoadmapList({ nodes, onNodeClick, activeNodeId, variant 
           Icon = CheckCircle2;
           iconColor = "text-green-400";
         } else if (status === "active") {
-          borderColor = "border-blue-500/50 hover:border-blue-400";
-          dotColor = "bg-blue-500 animate-pulse";
+          borderColor = "border-red-500/50 hover:border-red-400";
+          dotColor = "bg-red-500 animate-pulse";
           Icon = PlayCircle;
-          iconColor = "text-blue-400";
+          iconColor = "text-red-400";
         } else if (status === "failed") {
           borderColor = "border-red-500/30 hover:border-red-500/50";
           dotColor = "bg-red-500";
@@ -116,9 +116,9 @@ export default function RoadmapList({ nodes, onNodeClick, activeNodeId, variant 
             {/* Week/Day divider label */}
             {showDivider && (
               <div className="flex items-center gap-2 mt-4 mb-2 px-1">
-                <Calendar size={11} className="text-purple-400 flex-shrink-0" />
-                <span className="text-[10px] font-black uppercase tracking-[0.15em] text-purple-400">{group}</span>
-                <div className="flex-1 h-px bg-purple-500/15" />
+                <Calendar size={11} className="text-amber-400 flex-shrink-0" />
+                <span className="text-[10px] font-black uppercase tracking-[0.15em] text-amber-400">{group}</span>
+                <div className="flex-1 h-px bg-amber-500/15" />
               </div>
             )}
 
@@ -126,7 +126,7 @@ export default function RoadmapList({ nodes, onNodeClick, activeNodeId, variant 
             {i > 0 && (
               <div className={`h-3 w-0.5 mx-[19px] ${
                 nodes[i - 1]?.status === "completed" ? "bg-green-500/40" :
-                nodes[i - 1]?.status === "active" ? "bg-blue-500/40" : "bg-gray-800"
+                nodes[i - 1]?.status === "active" ? "bg-red-500/40" : "bg-gray-800"
               }`} />
             )}
 
@@ -135,7 +135,7 @@ export default function RoadmapList({ nodes, onNodeClick, activeNodeId, variant 
               onClick={() => isClickable && onNodeClick && onNodeClick(node)}
               disabled={!isClickable}
               className={`w-full flex items-start gap-3 p-3 rounded-xl border transition-all text-left ${borderColor} ${
-                isActive ? "bg-blue-500/8 border-blue-500/60 shadow-sm shadow-blue-900/20" : "bg-gray-950/60"
+                isActive ? "bg-red-500/8 border-red-500/60 shadow-sm shadow-red-900/20" : "bg-gray-950/60"
               } ${isClickable ? "cursor-pointer hover:bg-gray-900/60" : "cursor-default opacity-60"}`}
             >
               {/* Status dot */}
@@ -149,7 +149,7 @@ export default function RoadmapList({ nodes, onNodeClick, activeNodeId, variant 
                   <Icon size={11} className={`${iconColor} flex-shrink-0`} />
                   <span className={`text-xs font-bold truncate ${
                     status === "completed" ? "text-green-300" :
-                    status === "active" ? "text-blue-200" :
+                    status === "active" ? "text-red-200" :
                     status === "failed" ? "text-red-300" : "text-gray-500"
                   }`}>
                     {node.title}

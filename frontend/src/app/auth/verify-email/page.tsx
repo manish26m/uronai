@@ -93,18 +93,18 @@ function VerifyEmailForm() {
   const filled = otp.every(d => d);
 
   return (
-    <div className="min-h-screen bg-[#07080f] flex items-center justify-center p-4 relative overflow-hidden">
+    <div className="min-h-screen bg-[#0c0505] flex items-center justify-center p-4 relative overflow-hidden">
       {/* Background glows */}
       <div className="absolute inset-0 pointer-events-none overflow-hidden">
-        <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-blue-600/8 rounded-full blur-3xl" />
-        <div className="absolute bottom-0 right-0 w-64 h-64 bg-purple-600/10 rounded-full blur-3xl" />
+        <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-red-600/8 rounded-full blur-3xl" />
+        <div className="absolute bottom-0 right-0 w-64 h-64 bg-amber-600/10 rounded-full blur-3xl" />
       </div>
 
       <div className="w-full max-w-md relative z-10">
         {/* Logo */}
         <Link href="/" className="flex items-center justify-center gap-2 mb-8">
-          <div className="w-9 h-9 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center text-white font-black text-lg">U</div>
-          <span className="text-xl font-black text-white">uron<span className="text-blue-400">ai</span></span>
+          <div className="w-9 h-9 bg-gradient-to-br from-red-500 to-amber-600 rounded-xl flex items-center justify-center text-white font-black text-lg">U</div>
+          <span className="text-xl font-black text-white">uron<span className="text-red-400">ai</span></span>
         </Link>
 
         <div className="bg-gray-950/60 border border-gray-800/70 rounded-3xl p-8 backdrop-blur-xl shadow-2xl">
@@ -115,19 +115,19 @@ function VerifyEmailForm() {
               </div>
               <h2 className="text-2xl font-black text-white mb-2">Email Verified!</h2>
               <p className="text-gray-400 text-sm">Redirecting you to sign in...</p>
-              <Loader2 className="animate-spin text-blue-400 mt-4" size={20} />
+              <Loader2 className="animate-spin text-red-400 mt-4" size={20} />
             </div>
           ) : (
             <>
               {/* Header */}
               <div className="flex flex-col items-center text-center mb-8">
-                <div className="w-16 h-16 bg-blue-500/10 border border-blue-500/20 rounded-2xl flex items-center justify-center mb-4">
-                  <Mail size={30} className="text-blue-400" />
+                <div className="w-16 h-16 bg-red-500/10 border border-red-500/20 rounded-2xl flex items-center justify-center mb-4">
+                  <Mail size={30} className="text-red-400" />
                 </div>
                 <h1 className="text-2xl font-black text-white mb-2">Check your inbox</h1>
                 <p className="text-gray-500 text-sm leading-relaxed">
                   We sent a 6-digit code to<br />
-                  <span className="text-blue-400 font-semibold">{email}</span>
+                  <span className="text-red-400 font-semibold">{email}</span>
                 </p>
               </div>
 
@@ -146,8 +146,8 @@ function VerifyEmailForm() {
                     onKeyDown={e => handleKeyDown(e, idx)}
                     className={`w-12 h-14 rounded-xl text-center text-2xl font-black transition-all focus:outline-none border-2 ${
                       error ? "border-red-500 bg-red-950/20 text-red-300"
-                      : digit ? "border-blue-500 bg-blue-500/10 text-white"
-                      : "border-gray-800 bg-gray-900/60 text-white focus:border-blue-500"
+                      : digit ? "border-red-500 bg-red-500/10 text-white"
+                      : "border-gray-800 bg-gray-900/60 text-white focus:border-red-500"
                     }`}
                   />
                 ))}
@@ -162,7 +162,7 @@ function VerifyEmailForm() {
               <button
                 onClick={() => submitOtp(otp.join(""))}
                 disabled={loading || !filled}
-                className="w-full bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white font-bold py-4 rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg shadow-blue-900/30 mb-4"
+                className="w-full bg-red-600 hover:bg-red-500 disabled:opacity-50 text-white font-bold py-4 rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg shadow-red-900/30 mb-4"
               >
                 {loading ? <Loader2 className="animate-spin" size={18} /> : <><ShieldCheck size={18} /> Verify Account</>}
               </button>
@@ -194,8 +194,8 @@ function VerifyEmailForm() {
 export default function VerifyEmailPage() {
   return (
     <Suspense fallback={
-      <div className="min-h-screen bg-[#07080f] flex items-center justify-center">
-        <Loader2 className="animate-spin text-blue-500" size={40} />
+      <div className="min-h-screen bg-[#0c0505] flex items-center justify-center">
+        <Loader2 className="animate-spin text-red-500" size={40} />
       </div>
     }>
       <VerifyEmailForm />

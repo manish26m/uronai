@@ -80,16 +80,16 @@ export default function LoginPage() {
   if (status === "loading") return null;
 
   return (
-    <div className="min-h-screen bg-[#07080f] flex relative overflow-hidden">
+    <div className="min-h-screen bg-[#0c0505] flex relative overflow-hidden">
       {/* ── Left decorative panel ── */}
       <div className="hidden lg:flex flex-1 flex-col justify-between p-14 relative overflow-hidden border-r border-white/5">
-        <div className="absolute inset-0 bg-gradient-to-br from-indigo-950/70 via-blue-950/40 to-[#07080f]" />
+        <div className="absolute inset-0 bg-gradient-to-br from-indigo-950/70 via-red-950/40 to-[#0c0505]" />
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_bottom_right,rgba(59,130,246,0.18),transparent_65%)]" />
-        <div className="absolute top-0 right-0 w-80 h-80 bg-purple-600/8 rounded-full blur-3xl" />
+        <div className="absolute top-0 right-0 w-80 h-80 bg-amber-600/8 rounded-full blur-3xl" />
 
         <Link href="/" className="flex items-center gap-3 relative z-10">
-          <div className="w-11 h-11 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl flex items-center justify-center text-white font-black text-xl shadow-xl shadow-blue-900/50">U</div>
-          <span className="text-2xl font-black text-white tracking-tight">uron<span className="text-blue-400">ai</span></span>
+          <div className="w-11 h-11 bg-gradient-to-br from-red-500 to-amber-600 rounded-2xl flex items-center justify-center text-white font-black text-xl shadow-xl shadow-red-900/50">U</div>
+          <span className="text-2xl font-black text-white tracking-tight">uron<span className="text-red-400">ai</span></span>
         </Link>
 
         <div className="relative z-10 space-y-10">
@@ -116,8 +116,8 @@ export default function LoginPage() {
       <div className="flex-1 flex items-center justify-center p-6 lg:p-14">
         <div className="w-full max-w-sm">
           <Link href="/" className="flex items-center gap-2 mb-10 lg:hidden">
-            <div className="w-9 h-9 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center text-white font-black text-lg">U</div>
-            <span className="text-xl font-black text-white">uron<span className="text-blue-400">ai</span></span>
+            <div className="w-9 h-9 bg-gradient-to-br from-red-500 to-amber-600 rounded-xl flex items-center justify-center text-white font-black text-lg">U</div>
+            <span className="text-xl font-black text-white">uron<span className="text-red-400">ai</span></span>
           </Link>
 
           <div className="mb-8">
@@ -153,7 +153,7 @@ export default function LoginPage() {
                 <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-600" size={16} />
                 <input type="email" value={email} onChange={e => { setEmail(e.target.value); setErrorType(null); }} required
                   placeholder="you@example.com" autoComplete="email"
-                  className={`w-full bg-gray-900/70 border rounded-2xl pl-11 pr-4 py-3.5 text-white placeholder-gray-700 focus:outline-none transition text-sm ${errorType === "not_found" ? "border-orange-500 focus:border-orange-400" : "border-gray-800 focus:border-blue-500"}`}
+                  className={`w-full bg-gray-900/70 border rounded-2xl pl-11 pr-4 py-3.5 text-white placeholder-gray-700 focus:outline-none transition text-sm ${errorType === "not_found" ? "border-orange-500 focus:border-orange-400" : "border-gray-800 focus:border-red-500"}`}
                 />
               </div>
             </div>
@@ -164,7 +164,7 @@ export default function LoginPage() {
                 <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-600" size={16} />
                 <input type={showPass ? "text" : "password"} value={password} onChange={e => { setPassword(e.target.value); setErrorType(null); }} required
                   placeholder="Your password" autoComplete="current-password"
-                  className={`w-full bg-gray-900/70 border rounded-2xl pl-11 pr-11 py-3.5 text-white placeholder-gray-700 focus:outline-none transition text-sm ${errorType === "wrong_password" ? "border-red-500 focus:border-red-400" : "border-gray-800 focus:border-blue-500"}`}
+                  className={`w-full bg-gray-900/70 border rounded-2xl pl-11 pr-11 py-3.5 text-white placeholder-gray-700 focus:outline-none transition text-sm ${errorType === "wrong_password" ? "border-red-500 focus:border-red-400" : "border-gray-800 focus:border-red-500"}`}
                 />
                 <button type="button" onClick={() => setShowPass(!showPass)} className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-600 hover:text-gray-300 transition">
                   {showPass ? <EyeOff size={16} /> : <Eye size={16} />}
@@ -208,7 +208,7 @@ export default function LoginPage() {
             )}
 
             <button type="submit" disabled={loading}
-              className="w-full bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 disabled:opacity-50 text-white font-bold py-4 rounded-2xl transition-all shadow-xl shadow-blue-900/25 flex items-center justify-center gap-2 mt-2"
+              className="w-full bg-gradient-to-r from-red-600 to-red-500 hover:from-red-500 hover:to-red-400 disabled:opacity-50 text-white font-bold py-4 rounded-2xl transition-all shadow-xl shadow-red-900/25 flex items-center justify-center gap-2 mt-2"
             >
               {loading ? <Loader2 className="animate-spin" size={18} /> : <><ArrowRight size={18} /> Sign In</>}
             </button>
@@ -216,7 +216,7 @@ export default function LoginPage() {
 
           <p className="text-center text-gray-700 text-sm mt-6">
             Don&apos;t have an account?{" "}
-            <Link href="/auth/register" className="text-blue-400 hover:text-blue-300 font-bold transition">Create one free →</Link>
+            <Link href="/auth/register" className="text-red-400 hover:text-red-300 font-bold transition">Create one free →</Link>
           </p>
         </div>
       </div>

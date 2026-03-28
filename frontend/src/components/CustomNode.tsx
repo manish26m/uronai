@@ -16,9 +16,9 @@ export default function CustomNode({ data }: { data: { label: string; status?: s
     iconColor = "text-green-400 bg-green-500/20";
   } else if (status === 'active') {
     Icon = PlayCircle;
-    borderColor = "border-blue-500";
-    bgColor = "bg-gradient-to-br from-gray-900 to-blue-950/30";
-    iconColor = "text-blue-400 bg-blue-500/20 animate-pulse";
+    borderColor = "border-red-500";
+    bgColor = "bg-gradient-to-br from-gray-900 to-red-950/30";
+    iconColor = "text-red-400 bg-red-500/20 animate-pulse";
   } else if (status === 'failed') {
     Icon = AlertCircle;
     borderColor = "border-red-500/50";
@@ -34,7 +34,7 @@ export default function CustomNode({ data }: { data: { label: string; status?: s
 
   return (
     <div className={`px-6 py-4 shadow-2xl shadow-black/50 rounded-2xl ${bgColor} border-2 ${borderColor} text-white min-w-[240px] transition-transform hover:scale-105`}>
-      <Handle type="target" position={Position.Top} className={`w-4 h-4 ${status === 'locked' ? 'bg-gray-700' : 'bg-blue-500'} border-2 border-gray-900`} />
+      <Handle type="target" position={Position.Top} className={`w-4 h-4 ${status === 'locked' ? 'bg-gray-700' : 'bg-red-500'} border-2 border-gray-900`} />
       
       <div className="flex items-center gap-4">
         <div className={`p-2 rounded-xl border border-white/5 ${iconColor}`}>
@@ -48,7 +48,7 @@ export default function CustomNode({ data }: { data: { label: string; status?: s
         </div>
       </div>
       
-      <Handle type="source" position={Position.Bottom} className={`w-4 h-4 ${status === 'locked' ? 'bg-gray-700' : 'bg-blue-500'} border-2 border-gray-900`} />
+      <Handle type="source" position={Position.Bottom} className={`w-4 h-4 ${status === 'locked' ? 'bg-gray-700' : 'bg-red-500'} border-2 border-gray-900`} />
     </div>
   );
 }

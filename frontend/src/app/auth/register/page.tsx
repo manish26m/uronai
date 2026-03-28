@@ -154,21 +154,21 @@ export default function RegisterPage() {
 
   // ─────────────────────────────────────
   return (
-    <div className="min-h-screen bg-[#07080f] flex relative overflow-hidden">
+    <div className="min-h-screen bg-[#0c0505] flex relative overflow-hidden">
       {/* ── Left Panel ── */}
       <div className="hidden lg:flex flex-1 flex-col justify-between p-14 relative overflow-hidden border-r border-white/5">
-        <div className="absolute inset-0 bg-gradient-to-br from-purple-950/60 via-blue-950/40 to-[#07080f]" />
+        <div className="absolute inset-0 bg-gradient-to-br from-amber-950/60 via-red-950/40 to-[#0c0505]" />
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,rgba(139,92,246,0.15),transparent_65%)]" />
-        <div className="absolute bottom-0 left-0 w-80 h-80 bg-blue-600/8 rounded-full blur-3xl" />
+        <div className="absolute bottom-0 left-0 w-80 h-80 bg-red-600/8 rounded-full blur-3xl" />
 
         <Link href="/" className="flex items-center gap-3 relative z-10">
-          <div className="w-11 h-11 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl flex items-center justify-center text-white font-black text-xl shadow-xl shadow-blue-900/50">U</div>
-          <span className="text-2xl font-black text-white tracking-tight">uron<span className="text-blue-400">ai</span></span>
+          <div className="w-11 h-11 bg-gradient-to-br from-red-500 to-amber-600 rounded-2xl flex items-center justify-center text-white font-black text-xl shadow-xl shadow-red-900/50">U</div>
+          <span className="text-2xl font-black text-white tracking-tight">uron<span className="text-red-400">ai</span></span>
         </Link>
 
         <div className="relative z-10 space-y-8">
           <div>
-            <p className="text-purple-400 text-xs font-bold uppercase tracking-widest mb-3">Start your journey</p>
+            <p className="text-amber-400 text-xs font-bold uppercase tracking-widest mb-3">Start your journey</p>
             <h2 className="text-4xl font-extralight text-white/80 leading-tight tracking-tight mb-4">
               Learn anything.<br />
               <span className="font-black text-white">Master everything.</span>
@@ -194,16 +194,16 @@ export default function RegisterPage() {
       <div className="flex-1 flex items-center justify-center p-6 lg:p-14">
         <div className="w-full max-w-sm">
           <Link href="/" className="flex items-center gap-2 mb-10 lg:hidden">
-            <div className="w-9 h-9 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center text-white font-black text-lg">U</div>
-            <span className="text-xl font-black text-white">uron<span className="text-blue-400">ai</span></span>
+            <div className="w-9 h-9 bg-gradient-to-br from-red-500 to-amber-600 rounded-xl flex items-center justify-center text-white font-black text-lg">U</div>
+            <span className="text-xl font-black text-white">uron<span className="text-red-400">ai</span></span>
           </Link>
 
           {/* ── OTP Step (inline) ── */}
           {step === "otp" ? (
             <div>
               <div className="mb-8">
-                <div className="w-14 h-14 bg-blue-500/10 border border-blue-500/20 rounded-2xl flex items-center justify-center mb-4">
-                  <Mail size={26} className="text-blue-400" />
+                <div className="w-14 h-14 bg-red-500/10 border border-red-500/20 rounded-2xl flex items-center justify-center mb-4">
+                  <Mail size={26} className="text-red-400" />
                 </div>
                 {otpSuccess ? (
                   <>
@@ -214,7 +214,7 @@ export default function RegisterPage() {
                   <>
                     <h2 className="text-3xl font-black text-white mb-1">Check your email</h2>
                     <p className="text-gray-500 text-sm">
-                      We sent a 6-digit code to <span className="text-blue-400 font-semibold">{email}</span>
+                      We sent a 6-digit code to <span className="text-red-400 font-semibold">{email}</span>
                     </p>
                   </>
                 )}
@@ -233,8 +233,8 @@ export default function RegisterPage() {
                         onKeyDown={e => handleOtpKey(e, idx)}
                         className={`w-12 h-14 sm:w-14 sm:h-16 rounded-2xl text-center text-2xl font-black focus:outline-none border-2 transition-all ${
                           otpError ? "border-red-500 bg-red-950/20 text-red-300"
-                          : digit ? "border-blue-500 bg-blue-500/10 text-white"
-                          : "border-gray-800 bg-gray-900/60 text-white focus:border-blue-500"
+                          : digit ? "border-red-500 bg-red-500/10 text-white"
+                          : "border-gray-800 bg-gray-900/60 text-white focus:border-red-500"
                         }`}
                       />
                     ))}
@@ -249,7 +249,7 @@ export default function RegisterPage() {
                   <button
                     onClick={() => submitOtp(otp.join(""))}
                     disabled={otpLoading || otp.some(d => !d)}
-                    className="w-full bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white font-bold py-4 rounded-2xl flex items-center justify-center gap-2 transition-all shadow-xl shadow-blue-900/25 mb-4"
+                    className="w-full bg-red-600 hover:bg-red-500 disabled:opacity-50 text-white font-bold py-4 rounded-2xl flex items-center justify-center gap-2 transition-all shadow-xl shadow-red-900/25 mb-4"
                   >
                     {otpLoading ? <Loader2 className="animate-spin" size={18} /> : <><ShieldCheck size={18} /> Verify Account</>}
                   </button>
@@ -271,7 +271,7 @@ export default function RegisterPage() {
 
               {otpSuccess && (
                 <div className="flex items-center justify-center gap-3 py-8">
-                  <Loader2 className="animate-spin text-blue-400" size={24} />
+                  <Loader2 className="animate-spin text-red-400" size={24} />
                   <span className="text-gray-400 text-sm">Redirecting to dashboard...</span>
                 </div>
               )}
@@ -311,7 +311,7 @@ export default function RegisterPage() {
                   <div className="relative">
                     <User className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-600" size={16} />
                     <input type="text" value={name} onChange={e => setName(e.target.value)} required placeholder="Your full name"
-                      className="w-full bg-gray-900/70 border border-gray-800 focus:border-blue-500 rounded-2xl pl-11 pr-4 py-3.5 text-white placeholder-gray-700 focus:outline-none transition text-sm"
+                      className="w-full bg-gray-900/70 border border-gray-800 focus:border-red-500 rounded-2xl pl-11 pr-4 py-3.5 text-white placeholder-gray-700 focus:outline-none transition text-sm"
                     />
                   </div>
                 </div>
@@ -321,7 +321,7 @@ export default function RegisterPage() {
                   <div className="relative">
                     <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-600" size={16} />
                     <input type="email" value={email} onChange={e => setEmail(e.target.value)} required placeholder="you@example.com"
-                      className="w-full bg-gray-900/70 border border-gray-800 focus:border-blue-500 rounded-2xl pl-11 pr-4 py-3.5 text-white placeholder-gray-700 focus:outline-none transition text-sm"
+                      className="w-full bg-gray-900/70 border border-gray-800 focus:border-red-500 rounded-2xl pl-11 pr-4 py-3.5 text-white placeholder-gray-700 focus:outline-none transition text-sm"
                     />
                   </div>
                 </div>
@@ -331,7 +331,7 @@ export default function RegisterPage() {
                   <div className="relative">
                     <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-600" size={16} />
                     <input type={showPass ? "text" : "password"} value={password} onChange={e => setPassword(e.target.value)} required placeholder="Create a strong password"
-                      className="w-full bg-gray-900/70 border border-gray-800 focus:border-blue-500 rounded-2xl pl-11 pr-11 py-3.5 text-white placeholder-gray-700 focus:outline-none transition text-sm"
+                      className="w-full bg-gray-900/70 border border-gray-800 focus:border-red-500 rounded-2xl pl-11 pr-11 py-3.5 text-white placeholder-gray-700 focus:outline-none transition text-sm"
                     />
                     <button type="button" onClick={() => setShowPass(!showPass)} className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-600 hover:text-gray-300 transition">
                       {showPass ? <EyeOff size={16} /> : <Eye size={16} />}
@@ -345,7 +345,7 @@ export default function RegisterPage() {
                   <div className="relative">
                     <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-600" size={16} />
                     <input type={showConfirm ? "text" : "password"} value={confirm} onChange={e => setConfirm(e.target.value)} required placeholder="Repeat your password"
-                      className={`w-full bg-gray-900/70 border rounded-2xl pl-11 pr-11 py-3.5 text-white placeholder-gray-700 focus:outline-none transition text-sm ${mismatch ? "border-red-500 focus:border-red-400" : match ? "border-green-500 focus:border-green-400" : "border-gray-800 focus:border-blue-500"}`}
+                      className={`w-full bg-gray-900/70 border rounded-2xl pl-11 pr-11 py-3.5 text-white placeholder-gray-700 focus:outline-none transition text-sm ${mismatch ? "border-red-500 focus:border-red-400" : match ? "border-green-500 focus:border-green-400" : "border-gray-800 focus:border-red-500"}`}
                     />
                     <button type="button" onClick={() => setShowConfirm(!showConfirm)} className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-600 hover:text-gray-300 transition">
                       {showConfirm ? <EyeOff size={16} /> : <Eye size={16} />}
@@ -362,7 +362,7 @@ export default function RegisterPage() {
                 )}
 
                 <button type="submit" disabled={loading || !!mismatch}
-                  className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 disabled:opacity-50 text-white font-bold py-4 rounded-2xl transition-all shadow-xl shadow-blue-900/20 flex items-center justify-center gap-2 mt-2"
+                  className="w-full bg-gradient-to-r from-red-600 to-amber-600 hover:from-red-500 hover:to-amber-500 disabled:opacity-50 text-white font-bold py-4 rounded-2xl transition-all shadow-xl shadow-red-900/20 flex items-center justify-center gap-2 mt-2"
                 >
                   {loading ? <Loader2 className="animate-spin" size={18} /> : <><ArrowRight size={18} /> Create Account</>}
                 </button>
@@ -370,7 +370,7 @@ export default function RegisterPage() {
 
               <p className="text-center text-gray-700 text-sm mt-6">
                 Already have an account?{" "}
-                <Link href="/auth/login" className="text-blue-400 hover:text-blue-300 font-bold transition">Sign in →</Link>
+                <Link href="/auth/login" className="text-red-400 hover:text-red-300 font-bold transition">Sign in →</Link>
               </p>
             </>
           )}

@@ -14,10 +14,10 @@ interface Certification {
 
 const providerColors: Record<string, { bg: string; text: string; border: string }> = {
   AWS: { bg: "bg-orange-500/10", text: "text-orange-400", border: "border-orange-500/20" },
-  Google: { bg: "bg-blue-500/10", text: "text-blue-400", border: "border-blue-500/20" },
+  Google: { bg: "bg-red-500/10", text: "text-red-400", border: "border-red-500/20" },
   Microsoft: { bg: "bg-sky-500/10", text: "text-sky-400", border: "border-sky-500/20" },
   CompTIA: { bg: "bg-red-500/10", text: "text-red-400", border: "border-red-500/20" },
-  default: { bg: "bg-purple-500/10", text: "text-purple-400", border: "border-purple-500/20" },
+  default: { bg: "bg-amber-500/10", text: "text-amber-400", border: "border-amber-500/20" },
 };
 
 export default function CertificationsPage() {
@@ -129,8 +129,8 @@ export default function CertificationsPage() {
       )}
 
       {!loading && (
-        <div className="flex items-start gap-4 bg-blue-900/10 border border-blue-800/20 rounded-2xl p-5">
-          <Info size={17} className="text-blue-400 shrink-0 mt-0.5" />
+        <div className="flex items-start gap-4 bg-red-900/10 border border-red-800/20 rounded-2xl p-5">
+          <Info size={17} className="text-red-400 shrink-0 mt-0.5" />
           <div>
             <h4 className="text-sm font-bold text-white mb-1">Why get certified?</h4>
             <p className="text-sm text-gray-400 leading-relaxed">

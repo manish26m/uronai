@@ -19,7 +19,7 @@ interface LearningPath {
 const pathIcons: Record<string, any> = { fast: Zap, foundation: Brain, career: Briefcase };
 const pathColors: Record<string, string> = {
   fast: "border-yellow-500/50 hover:border-yellow-400 bg-yellow-500/5",
-  foundation: "border-blue-500/50 hover:border-blue-400 bg-blue-500/5",
+  foundation: "border-red-500/50 hover:border-red-400 bg-red-500/5",
   career: "border-green-500/50 hover:border-green-400 bg-green-500/5",
 };
 
@@ -119,20 +119,20 @@ export default function SubjectsPage() {
           <p className="text-gray-500 mt-1.5">Your adaptive AI-generated learning roadmaps.</p>
         </div>
         <button onClick={() => setShowWizard(true)}
-          className="flex items-center gap-2 bg-blue-600 hover:bg-blue-500 text-white font-bold px-6 py-3 rounded-xl transition-all shadow-lg shadow-blue-900/40 hover:shadow-blue-900/60 hover:scale-105"
+          className="flex items-center gap-2 bg-red-600 hover:bg-red-500 text-white font-bold px-6 py-3 rounded-xl transition-all shadow-lg shadow-red-900/40 hover:shadow-red-900/60 hover:scale-105"
         >
           <Plus size={20} /> New Mission
         </button>
       </div>
 
       {loading ? (
-        <div className="flex justify-center py-32"><Loader2 className="animate-spin text-blue-500" size={48} /></div>
+        <div className="flex justify-center py-32"><Loader2 className="animate-spin text-red-500" size={48} /></div>
       ) : subjects.length === 0 ? (
         <div className="border border-dashed border-gray-800 rounded-2xl flex flex-col items-center justify-center py-32 text-center text-gray-500 bg-gray-900/10">
           <Map size={56} className="mb-4 text-gray-700" />
           <h2 className="text-2xl font-bold text-gray-400 mb-2">No Missions Yet</h2>
           <p className="mb-6 max-w-sm">Hit &quot;New Mission&quot; and let AI build your personalized learning roadmap in seconds.</p>
-          <button onClick={() => setShowWizard(true)} className="flex items-center gap-2 bg-blue-600 text-white px-6 py-3 rounded-xl font-bold hover:bg-blue-500 transition">
+          <button onClick={() => setShowWizard(true)} className="flex items-center gap-2 bg-red-600 text-white px-6 py-3 rounded-xl font-bold hover:bg-red-500 transition">
             <Sparkles size={18} /> Create Your First Mission
           </button>
         </div>
@@ -140,17 +140,17 @@ export default function SubjectsPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
           {subjects.map(s => (
             <Link href={`/subjects/${s.id}`} key={s.id}
-              className="group relative bg-gray-900/80 border border-gray-800 hover:border-blue-500/40 rounded-2xl overflow-hidden flex flex-col transition-all hover:shadow-2xl hover:shadow-blue-900/20 hover:-translate-y-1"
+              className="group relative bg-gray-900/80 border border-gray-800 hover:border-red-500/40 rounded-2xl overflow-hidden flex flex-col transition-all hover:shadow-2xl hover:shadow-red-900/20 hover:-translate-y-1"
             >
-              <div className="h-0.5 w-full bg-gradient-to-r from-blue-600 via-purple-600 to-blue-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+              <div className="h-0.5 w-full bg-gradient-to-r from-red-600 via-amber-600 to-red-400 opacity-0 group-hover:opacity-100 transition-opacity" />
               <div className="p-6 flex-1 flex flex-col">
                 <div className="flex justify-between items-start mb-4">
-                  <div className="p-3 bg-blue-500/10 text-blue-400 rounded-xl border border-blue-500/20"><Map size={20} /></div>
+                  <div className="p-3 bg-red-500/10 text-red-400 rounded-xl border border-red-500/20"><Map size={20} /></div>
                   <button onClick={e => handleDelete(e, s.id)} className="text-gray-700 hover:text-red-400 transition p-1.5 opacity-0 group-hover:opacity-100 rounded-lg hover:bg-red-950/20">
                     <Trash2 size={16} />
                   </button>
                 </div>
-                <h3 className="font-bold text-lg text-white mb-1 line-clamp-2 group-hover:text-blue-300 transition-colors">{s.title}</h3>
+                <h3 className="font-bold text-lg text-white mb-1 line-clamp-2 group-hover:text-red-300 transition-colors">{s.title}</h3>
                 <p className="text-gray-500 text-sm mb-4 flex-1 line-clamp-2">{s.description || "Adaptive learning roadmap"}</p>
                 <div className="flex gap-2 mb-4">
                   {[{ label: "Level", val: s.level }, { label: "XP", val: s.xp }, { label: "Nodes", val: s.nodes?.length || 0 }].map(({ label, val }) => (
@@ -163,11 +163,11 @@ export default function SubjectsPage() {
                 <div>
                   <div className="flex justify-between text-xs text-gray-500 mb-1"><span>Progress</span><span>{s.progress_percentage}%</span></div>
                   <div className="h-1.5 bg-gray-800 rounded-full overflow-hidden">
-                    <div className="h-full bg-gradient-to-r from-blue-600 to-purple-600 rounded-full transition-all" style={{ width: `${s.progress_percentage}%` }} />
+                    <div className="h-full bg-gradient-to-r from-red-600 to-amber-600 rounded-full transition-all" style={{ width: `${s.progress_percentage}%` }} />
                   </div>
                 </div>
               </div>
-              <div className="px-6 py-4 border-t border-gray-800/50 flex items-center gap-2 text-blue-400 text-sm font-semibold group-hover:text-blue-300 transition">
+              <div className="px-6 py-4 border-t border-gray-800/50 flex items-center gap-2 text-red-400 text-sm font-semibold group-hover:text-red-300 transition">
                 Open Learning Arena <ChevronRight size={16} className="group-hover:translate-x-1 transition-transform" />
               </div>
             </Link>
@@ -181,7 +181,7 @@ export default function SubjectsPage() {
           <div className="bg-[#0d0d18] border border-gray-800/70 rounded-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col shadow-2xl">
             <div className="flex items-center justify-between p-6 border-b border-gray-800/50">
               <div className="flex items-center gap-3">
-                <div className="p-2 bg-blue-500/10 text-blue-400 rounded-xl"><Sparkles size={20} /></div>
+                <div className="p-2 bg-red-500/10 text-red-400 rounded-xl"><Sparkles size={20} /></div>
                 <div>
                   <h2 className="text-xl font-bold text-white">AI Mission Wizard</h2>
                   <p className="text-xs text-gray-500">
@@ -196,13 +196,13 @@ export default function SubjectsPage() {
 
             {wizardStep === "goal" && (
               <div className="flex-1 flex flex-col items-center justify-center p-12">
-                <div className="w-16 h-16 bg-blue-500/10 border border-blue-500/20 rounded-2xl flex items-center justify-center mb-6 text-blue-400"><Brain size={32} /></div>
+                <div className="w-16 h-16 bg-red-500/10 border border-red-500/20 rounded-2xl flex items-center justify-center mb-6 text-red-400"><Brain size={32} /></div>
                 <h3 className="text-3xl font-black text-white mb-2 text-center">What do you want to master?</h3>
                 <p className="text-gray-500 mb-8 text-center max-w-md">The AI analyzes your goal and instantly generates a highly detailed, step-by-step roadmap tailored to your timeframe.</p>
                 <form onSubmit={handleGoalSubmit} className="w-full max-w-xl space-y-3">
                   <input autoFocus value={goalInput} onChange={e => setGoalInput(e.target.value)}
                     placeholder='e.g. "Master React.js from scratch"'
-                    className="w-full bg-gray-900 border border-gray-700 focus:border-blue-500 rounded-xl px-5 py-4 text-white text-lg focus:outline-none transition placeholder-gray-600"
+                    className="w-full bg-gray-900 border border-gray-700 focus:border-red-500 rounded-xl px-5 py-4 text-white text-lg focus:outline-none transition placeholder-gray-600"
                   />
                   <div className="flex gap-3">
                     <div className="flex-1 bg-gray-900/50 border border-gray-800 rounded-xl px-4 py-3 flex items-center gap-3">
@@ -221,11 +221,11 @@ export default function SubjectsPage() {
                     />
                   </div>
                   <label className="flex items-center gap-2 mt-1 px-1 cursor-pointer w-max">
-                    <input type="checkbox" checked={disableYt} onChange={e => setDisableYt(e.target.checked)} className="rounded border-gray-700 bg-gray-900 focus:ring-blue-500 text-blue-500" />
+                    <input type="checkbox" checked={disableYt} onChange={e => setDisableYt(e.target.checked)} className="rounded border-gray-700 bg-gray-900 focus:ring-red-500 text-red-500" />
                     <span className="text-gray-400 text-xs">Disable AI from auto-searching YouTube for unknown modules</span>
                   </label>
                   <button type="submit" disabled={wizardLoading || !goalInput.trim()}
-                    className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 disabled:opacity-50 text-white px-6 py-4 rounded-xl font-bold flex items-center justify-center gap-2 transition shadow-lg mt-2"
+                    className="w-full bg-gradient-to-r from-red-600 to-amber-600 hover:from-red-500 hover:to-amber-500 disabled:opacity-50 text-white px-6 py-4 rounded-xl font-bold flex items-center justify-center gap-2 transition shadow-lg mt-2"
                   >
                     {wizardLoading ? <><Loader2 className="animate-spin" size={20} /> Generating your detailed roadmap...</> : <><ArrowRight size={20} /> Generate Interactive Roadmap</>}
                   </button>
@@ -247,7 +247,7 @@ export default function SubjectsPage() {
                       ← Edit Goal
                     </button>
                     <button onClick={handleSaveRoadmap}
-                      className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white px-6 py-2 rounded-lg text-sm font-bold flex items-center gap-2 transition shadow-lg shadow-blue-900/30">
+                      className="bg-gradient-to-r from-red-600 to-amber-600 hover:from-red-500 hover:to-amber-500 text-white px-6 py-2 rounded-lg text-sm font-bold flex items-center gap-2 transition shadow-lg shadow-red-900/30">
                       <Trophy size={16} /> Launch Mission
                     </button>
                   </div>
@@ -260,7 +260,7 @@ export default function SubjectsPage() {
 
             {wizardStep === "saving" && (
               <div className="flex-1 flex flex-col items-center justify-center p-16">
-                <Loader2 className="animate-spin text-blue-500 mb-6" size={56} />
+                <Loader2 className="animate-spin text-red-500 mb-6" size={56} />
                 <h3 className="text-2xl font-black text-white mb-2">Launching your mission...</h3>
                 <p className="text-gray-500">Saving your adaptive roadmap.</p>
               </div>

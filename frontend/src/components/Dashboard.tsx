@@ -77,19 +77,19 @@ export default function Dashboard() {
   return (
     <div className="space-y-8 max-w-7xl mx-auto">
       {/* Hero Row */}
-      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-blue-900/40 via-purple-900/30 to-gray-950 border border-blue-800/30 p-8 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-red-900/40 via-amber-900/30 to-gray-950 border border-red-800/30 p-8 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,rgba(59,130,246,0.12),transparent_70%)] pointer-events-none" />
         <div>
-          <p className="text-blue-400 text-sm font-bold uppercase tracking-widest mb-1 flex items-center gap-2">
+          <p className="text-red-400 text-sm font-bold uppercase tracking-widest mb-1 flex items-center gap-2">
             <Sparkles size={13} /> {greeting}
           </p>
           <h1 className="text-4xl md:text-5xl font-black text-white tracking-tight">
-            Welcome back, <span className="bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">{userName}</span> 👋
+            Welcome back, <span className="bg-gradient-to-r from-red-400 to-amber-400 bg-clip-text text-transparent">{userName}</span> 👋
           </h1>
           <p className="text-gray-400 mt-2 text-sm max-w-md">Your adaptive AI learning dashboard. Track progress, unlock new skills, and match with career opportunities.</p>
         </div>
         <Link href="/subjects"
-          className="shrink-0 flex items-center gap-2 bg-blue-600 hover:bg-blue-500 text-white font-bold px-6 py-3 rounded-xl transition-all shadow-lg shadow-blue-900/50 hover:scale-105"
+          className="shrink-0 flex items-center gap-2 bg-red-600 hover:bg-red-500 text-white font-bold px-6 py-3 rounded-xl transition-all shadow-lg shadow-red-900/50 hover:scale-105"
         >
           <PlayCircle size={18} /> Continue Learning
         </Link>
@@ -126,7 +126,7 @@ export default function Dashboard() {
               <h3 className="font-bold text-white text-lg">XP This Week</h3>
               <p className="text-gray-500 text-xs">Your learning momentum</p>
             </div>
-            <div className={`text-xs font-bold px-3 py-1.5 rounded-full border ${xpGainedThisWeek > 0 ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' : 'bg-gray-800 text-gray-400 border-gray-700'}`}>
+            <div className={`text-xs font-bold px-3 py-1.5 rounded-full border ${xpGainedThisWeek > 0 ? 'bg-red-500/10 text-red-400 border-red-500/20' : 'bg-gray-800 text-gray-400 border-gray-700'}`}>
               +{xpGainedThisWeek} XP ↑
             </div>
           </div>
@@ -183,7 +183,7 @@ export default function Dashboard() {
         <div>
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg font-bold text-white">Active Missions</h3>
-            <Link href="/subjects" className="text-blue-400 hover:text-blue-300 text-sm font-semibold flex items-center gap-1 transition">
+            <Link href="/subjects" className="text-red-400 hover:text-red-300 text-sm font-semibold flex items-center gap-1 transition">
               View all <ArrowRight size={14} />
             </Link>
           </div>
@@ -192,15 +192,15 @@ export default function Dashboard() {
               const completed = s.nodes?.filter((n: any) => n.status === "completed").length || 0;
               return (
                 <Link href={`/subjects/${s.id}`} key={s.id}
-                  className="group bg-gray-900/80 border border-gray-800 hover:border-blue-500/30 rounded-2xl p-5 transition-all hover:-translate-y-0.5 hover:shadow-xl hover:shadow-blue-900/10"
+                  className="group bg-gray-900/80 border border-gray-800 hover:border-red-500/30 rounded-2xl p-5 transition-all hover:-translate-y-0.5 hover:shadow-xl hover:shadow-red-900/10"
                 >
                   <div className="flex items-start justify-between mb-3">
-                    <div className="p-2.5 bg-blue-500/10 text-blue-400 rounded-xl border border-blue-500/20">
+                    <div className="p-2.5 bg-red-500/10 text-red-400 rounded-xl border border-red-500/20">
                       <Map size={17} />
                     </div>
                     <span className="text-xs text-gray-600 bg-gray-800 px-2.5 py-1 rounded-full font-medium">Lv {s.level}</span>
                   </div>
-                  <h4 className="font-bold text-white line-clamp-1 mb-1 group-hover:text-blue-300 transition-colors">{s.title}</h4>
+                  <h4 className="font-bold text-white line-clamp-1 mb-1 group-hover:text-red-300 transition-colors">{s.title}</h4>
                   <p className="text-xs text-gray-500 mb-4">{completed} / {s.nodes?.length || 0} modules complete</p>
                   <div className="space-y-1.5">
                     <div className="flex justify-between text-xs text-gray-600">
@@ -209,7 +209,7 @@ export default function Dashboard() {
                     </div>
                     <div className="h-1.5 bg-gray-800 rounded-full overflow-hidden">
                       <div
-                        className="h-full bg-gradient-to-r from-blue-600 to-purple-600 rounded-full transition-all"
+                        className="h-full bg-gradient-to-r from-red-600 to-amber-600 rounded-full transition-all"
                         style={{ width: `${s.progress_percentage}%` }}
                       />
                     </div>
@@ -226,7 +226,7 @@ export default function Dashboard() {
           <Map size={48} className="text-gray-700 mb-4" />
           <h3 className="text-xl font-bold text-white mb-2">No missions yet</h3>
           <p className="text-gray-500 text-sm max-w-xs mb-6">Create your first AI-generated learning roadmap to get started.</p>
-          <Link href="/subjects" className="flex items-center gap-2 bg-blue-600 hover:bg-blue-500 text-white font-bold px-6 py-3 rounded-xl transition">
+          <Link href="/subjects" className="flex items-center gap-2 bg-red-600 hover:bg-red-500 text-white font-bold px-6 py-3 rounded-xl transition">
             <Sparkles size={16} /> Create Mission
           </Link>
         </div>

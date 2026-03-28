@@ -170,14 +170,14 @@ export default function LearningArena({ params }: { params: Promise<{ id: string
 
   if (loading || !subject) {
     return <div className="flex flex-col items-center justify-center h-[80vh]">
-      <Loader2 className="animate-spin text-blue-500 mb-4" size={48} />
+      <Loader2 className="animate-spin text-red-500 mb-4" size={48} />
       <p className="text-gray-400">Loading Learning Arena...</p>
     </div>;
   }
 
   const statusColor = {
     locked: "text-gray-500 bg-gray-800/50",
-    active: "text-blue-400 bg-blue-500/15",
+    active: "text-red-400 bg-red-500/15",
     completed: "text-green-400 bg-green-500/15",
     failed: "text-red-400 bg-red-500/15"
   };
@@ -207,11 +207,11 @@ export default function LearningArena({ params }: { params: Promise<{ id: string
               {ytEnabled ? "YT: ON" : "YT: OFF"}
               {ytEnabled ? <ToggleRight size={14} /> : <ToggleLeft size={14} />}
             </button>
-          <div className="bg-blue-500/10 border border-blue-500/20 text-blue-400 font-bold px-3 py-1.5 rounded-lg">Lv {subject.level}</div>
+          <div className="bg-red-500/10 border border-red-500/20 text-red-400 font-bold px-3 py-1.5 rounded-lg">Lv {subject.level}</div>
           <div className="bg-gray-900 border border-gray-800 text-white font-bold px-3 py-1.5 rounded-lg">{subject.xp} XP</div>
           <div className="bg-gray-900 border border-gray-800 px-3 py-1.5 rounded-lg flex items-center gap-2">
             <div className="w-20 h-1.5 bg-gray-800 rounded-full overflow-hidden">
-              <div className="h-full bg-gradient-to-r from-blue-600 to-purple-600 rounded-full" style={{ width: `${subject.progress_percentage}%` }} />
+              <div className="h-full bg-gradient-to-r from-red-600 to-amber-600 rounded-full" style={{ width: `${subject.progress_percentage}%` }} />
             </div>
             <span className="text-xs font-bold text-gray-400">{subject.progress_percentage}%</span>
           </div>
@@ -236,17 +236,17 @@ export default function LearningArena({ params }: { params: Promise<{ id: string
 
         <div className="flex-1 grid grid-cols-[1fr_350px] gap-4 min-h-0 overflow-hidden">
           
-          {/* LEFT/CENTER: Content (Video + Description) */}
-          <div className="flex flex-col gap-3 overflow-hidden min-h-0">
+          {/* LEFT/CENTER: Content (Video + Description) %} */}
+          <div className="flex flex-col gap-3 overflow-y-auto custom-scrollbar pr-2 min-h-0">
             {!activeNode ? (
               <div className="flex-1 bg-gray-950/50 border border-dashed border-gray-800/50 rounded-2xl flex flex-col items-center justify-center text-center p-10">
-                <div className="w-16 h-16 bg-blue-500/10 rounded-2xl flex items-center justify-center text-blue-400 mb-4 border border-blue-500/20"><PlayCircle size={30} /></div>
+                <div className="w-16 h-16 bg-red-500/10 rounded-2xl flex items-center justify-center text-red-400 mb-4 border border-red-500/20"><PlayCircle size={30} /></div>
                 <h3 className="text-xl font-bold text-white mb-2">Click a module to begin</h3>
                 <p className="text-gray-500 text-sm max-w-xs">Select any unlocked module from the timetable above to watch the tutorial and start learning.</p>
               </div>
             ) : (
               <>
-                <div className={`shrink-0 flex items-center gap-3 p-3 rounded-xl border ${activeNode.status === 'completed' ? 'border-green-500/20 bg-green-500/5' : activeNode.status === 'failed' ? 'border-red-500/20 bg-red-500/5' : activeNode.status === 'active' ? 'border-blue-500/20 bg-blue-500/5' : 'border-gray-800 bg-gray-900/50'}`}>
+                <div className={`shrink-0 flex items-center gap-3 p-3 rounded-xl border ${activeNode.status === 'completed' ? 'border-green-500/20 bg-green-500/5' : activeNode.status === 'failed' ? 'border-red-500/20 bg-red-500/5' : activeNode.status === 'active' ? 'border-red-500/20 bg-red-500/5' : 'border-gray-800 bg-gray-900/50'}`}>
                   <div className={`p-2 rounded-lg ${statusColor[activeNode.status as keyof typeof statusColor] || statusColor.locked}`}>
                     {statusIcon[activeNode.status as keyof typeof statusIcon]}
                   </div>
@@ -306,21 +306,21 @@ export default function LearningArena({ params }: { params: Promise<{ id: string
             {/* AI Tutor Chat (Now takes more space) */}
             <div className={`flex-1 flex flex-col bg-gray-950/80 border border-gray-800/50 rounded-2xl overflow-hidden backdrop-blur-sm ${!activeNode || activeNode.status === 'locked' ? 'opacity-50 grayscale pointer-events-none' : ''}`}>
               <div className="p-3 border-b border-gray-800/50 shrink-0 flex items-center gap-2">
-                <Sparkles size={13} className="text-purple-400" />
-                <span className="text-xs font-bold uppercase tracking-wider text-purple-400">AI Tutor</span>
+                <Sparkles size={13} className="text-amber-400" />
+                <span className="text-xs font-bold uppercase tracking-wider text-amber-400">AI Tutor</span>
               </div>
               <div className="flex-1 overflow-y-auto p-3 flex flex-col gap-3 text-xs scrollbar-thin scrollbar-track-transparent scrollbar-thumb-gray-800">
                 {chatHistory.length === 0 && activeNode && <p className="text-gray-600 italic text-center mt-4">Ask anything about <strong className="text-gray-400">{activeNode.title}</strong></p>}
                 {chatHistory.map((m, i) => (
-                  <div key={i} className={`p-2.5 rounded-xl max-w-[90%] leading-relaxed ${m.role === 'user' ? 'bg-blue-600/15 text-blue-100 self-end border border-blue-500/20' : 'bg-gray-800/80 text-gray-200 self-start border border-gray-700/50'}`}>{m.content}</div>
+                  <div key={i} className={`p-2.5 rounded-xl max-w-[90%] leading-relaxed ${m.role === 'user' ? 'bg-red-600/15 text-red-100 self-end border border-red-500/20' : 'bg-gray-800/80 text-gray-200 self-start border border-gray-700/50'}`}>{m.content}</div>
                 ))}
                 {chatLoading && <div className="self-start bg-gray-800 rounded-xl p-2 border border-gray-700"><Loader2 className="animate-spin text-gray-500" size={12} /></div>}
               </div>
               <form onSubmit={handleChat} className="p-2 border-t border-gray-800/50 flex gap-2 bg-black/30 shrink-0">
                 <input value={chatInput} onChange={e => setChatInput(e.target.value)} placeholder="Ask a question..."
-                  className="flex-1 bg-gray-900 border border-gray-800 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-purple-500 placeholder-gray-600"
+                  className="flex-1 bg-gray-900 border border-gray-800 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-amber-500 placeholder-gray-600"
                 />
-                <button type="submit" disabled={chatLoading || !chatInput.trim()} className="bg-purple-600 hover:bg-purple-500 disabled:opacity-50 text-white p-1.5 rounded-lg transition"><Send size={14} /></button>
+                <button type="submit" disabled={chatLoading || !chatInput.trim()} className="bg-amber-600 hover:bg-amber-500 disabled:opacity-50 text-white p-1.5 rounded-lg transition"><Send size={14} /></button>
               </form>
             </div>
 
@@ -345,7 +345,7 @@ export default function LearningArena({ params }: { params: Promise<{ id: string
                   <span className="text-lg font-black text-white">{activeNode.score}%</span>
                 </div>
               ) : (
-                <button onClick={handleStartQuiz} className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-2.5 rounded-xl transition flex items-center justify-center gap-2 text-sm shadow-lg shadow-blue-900/20">
+                <button onClick={handleStartQuiz} className="w-full bg-red-600 hover:bg-red-500 text-white font-bold py-2.5 rounded-xl transition flex items-center justify-center gap-2 text-sm shadow-lg shadow-red-900/20">
                   <Sparkles size={16} /> Launch Quiz
                 </button>
               )}
@@ -364,7 +364,7 @@ export default function LearningArena({ params }: { params: Promise<{ id: string
             </button>
             
             <div className="flex items-center gap-3 mb-8 shrink-0">
-              <div className="w-12 h-12 bg-blue-500/10 rounded-2xl flex items-center justify-center text-blue-400 border border-blue-500/20">
+              <div className="w-12 h-12 bg-red-500/10 rounded-2xl flex items-center justify-center text-red-400 border border-red-500/20">
                 <Trophy size={24} />
               </div>
               <div>
@@ -376,20 +376,20 @@ export default function LearningArena({ params }: { params: Promise<{ id: string
             <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar">
               {quizLoading ? (
                 <div className="flex flex-col items-center justify-center py-20">
-                  <Loader2 className="animate-spin text-blue-500 mb-4" size={40} />
+                  <Loader2 className="animate-spin text-red-500 mb-4" size={40} />
                   <p className="text-gray-400 font-semibold text-lg">Generating specific Quiz from transcript...</p>
                 </div>
               ) : quiz && !quizResult ? (
                 <div className="space-y-8">
                   {quiz.map((q, qIdx) => (
                     <div key={q.id} className="bg-gray-900/50 border border-gray-800 rounded-2xl p-6">
-                      <p className="text-lg font-semibold text-white mb-4"><span className="text-blue-400 mr-2">Q{qIdx + 1}.</span> {q.question}</p>
+                      <p className="text-lg font-semibold text-white mb-4"><span className="text-red-400 mr-2">Q{qIdx + 1}.</span> {q.question}</p>
                       <div className="grid gap-3">
                         {q.options.map((opt, oIdx) => (
                           <button key={oIdx} onClick={() => setAnswers(prev => ({ ...prev, [q.id]: oIdx }))}
-                            className={`text-left p-4 rounded-xl border transition-all flex items-center gap-3 ${answers[q.id] === oIdx ? 'bg-blue-600/20 border-blue-500 text-blue-100 shadow-[inset_0_0_10px_rgba(59,130,246,0.2)]' : 'bg-[#0f111a] border-gray-800 text-gray-400 hover:border-gray-600 hover:bg-gray-800/50'}`}
+                            className={`text-left p-4 rounded-xl border transition-all flex items-center gap-3 ${answers[q.id] === oIdx ? 'bg-red-600/20 border-red-500 text-red-100 shadow-[inset_0_0_10px_rgba(59,130,246,0.2)]' : 'bg-[#0f111a] border-gray-800 text-gray-400 hover:border-gray-600 hover:bg-gray-800/50'}`}
                           >
-                            <div className={`w-6 h-6 rounded-full border flex items-center justify-center text-xs font-bold ${answers[q.id] === oIdx ? 'border-blue-400 bg-blue-500 text-white' : 'border-gray-700'}`}>
+                            <div className={`w-6 h-6 rounded-full border flex items-center justify-center text-xs font-bold ${answers[q.id] === oIdx ? 'border-red-400 bg-red-500 text-white' : 'border-gray-700'}`}>
                               {String.fromCharCode(65 + oIdx)}
                             </div>
                             {opt}
@@ -399,7 +399,7 @@ export default function LearningArena({ params }: { params: Promise<{ id: string
                     </div>
                   ))}
                   <button onClick={handleSubmitQuiz} disabled={evaluating || Object.keys(answers).length < quiz.length}
-                    className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 disabled:opacity-50 disabled:grayscale text-white font-black text-lg py-5 rounded-2xl transition-all shadow-xl shadow-blue-900/20 flex items-center justify-center gap-2 mt-4"
+                    className="w-full bg-gradient-to-r from-red-600 to-amber-600 hover:from-red-500 hover:to-amber-500 disabled:opacity-50 disabled:grayscale text-white font-black text-lg py-5 rounded-2xl transition-all shadow-xl shadow-red-900/20 flex items-center justify-center gap-2 mt-4"
                   >
                     {evaluating ? <Loader2 className="animate-spin" size={24} /> : "Submit & Evaluate"}
                   </button>
@@ -415,7 +415,7 @@ export default function LearningArena({ params }: { params: Promise<{ id: string
                   <div className="flex gap-4">
                     <button onClick={() => { setQuiz(null); setQuizResult(null); setAnswers({}); setShowQuizModal(false); }} className="px-8 py-3 rounded-xl border border-gray-700 hover:bg-gray-800 text-white font-bold transition">Close</button>
                     {quizResult.score < 50 && (
-                      <button onClick={handleStartQuiz} className="px-8 py-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold transition">Try Again</button>
+                      <button onClick={handleStartQuiz} className="px-8 py-3 rounded-xl bg-red-600 hover:bg-red-500 text-white font-bold transition">Try Again</button>
                     )}
                   </div>
                 </div>

@@ -60,7 +60,7 @@ export default function AdminPage() {
 
   if (loading) return (
     <div className="flex justify-center items-center h-64">
-      <Loader2 className="animate-spin text-blue-500" size={40} />
+      <Loader2 className="animate-spin text-red-500" size={40} />
     </div>
   );
 
@@ -92,7 +92,7 @@ export default function AdminPage() {
       <div className="mb-4">
         <input value={search} onChange={e => setSearch(e.target.value)}
           placeholder="Search by name or email..."
-          className="w-full bg-gray-900 border border-gray-800 focus:border-blue-500 rounded-xl px-4 py-3 text-white placeholder-gray-600 focus:outline-none transition text-sm"
+          className="w-full bg-gray-900 border border-gray-800 focus:border-red-500 rounded-xl px-4 py-3 text-white placeholder-gray-600 focus:outline-none transition text-sm"
         />
       </div>
 
@@ -110,7 +110,7 @@ export default function AdminPage() {
               onClick={() => setExpandedUser(expandedUser === user.id ? null : user.id)}
               className="w-full flex items-center gap-4 p-5 text-left hover:bg-gray-800/30 transition"
             >
-              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-600 to-purple-600 flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
+              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-red-600 to-amber-600 flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
                 {user.avatar ? <img src={user.avatar} className="w-full h-full rounded-full object-cover" alt="" /> : user.name?.[0]?.toUpperCase()}
               </div>
               <div className="flex-1 min-w-0">
@@ -129,7 +129,7 @@ export default function AdminPage() {
                 <div className="w-24">
                   <p className="text-gray-500 text-xs uppercase tracking-wider font-bold mb-1">Progress</p>
                   <div className="h-1.5 bg-gray-800 rounded-full overflow-hidden">
-                    <div className="h-full bg-gradient-to-r from-blue-600 to-purple-600 rounded-full"
+                    <div className="h-full bg-gradient-to-r from-red-600 to-amber-600 rounded-full"
                       style={{ width: user.subjects.length > 0 ? `${Math.round(user.subjects.reduce((s, m) => s + m.progress_percentage, 0) / user.subjects.length)}%` : "0%" }}
                     />
                   </div>
@@ -150,7 +150,7 @@ export default function AdminPage() {
                         <div className="flex items-center justify-between mb-2">
                           <p className="font-bold text-sm text-white line-clamp-1">{s.title}</p>
                           <div className="flex items-center gap-2">
-                            <span className="text-xs bg-blue-500/10 text-blue-400 px-2 py-0.5 rounded font-bold">Lv {s.level}</span>
+                            <span className="text-xs bg-red-500/10 text-red-400 px-2 py-0.5 rounded font-bold">Lv {s.level}</span>
                             <span className="text-xs text-gray-500">{s.xp} XP</span>
                           </div>
                         </div>
@@ -158,7 +158,7 @@ export default function AdminPage() {
                           <TrendingUp size={12} /> {s.progress_percentage}% complete • {s.nodes?.length || 0} nodes
                         </div>
                         <div className="h-1.5 bg-gray-800 rounded-full overflow-hidden">
-                          <div className="h-full bg-gradient-to-r from-blue-600 to-purple-600 rounded-full transition-all" style={{ width: `${s.progress_percentage}%` }} />
+                          <div className="h-full bg-gradient-to-r from-red-600 to-amber-600 rounded-full transition-all" style={{ width: `${s.progress_percentage}%` }} />
                         </div>
                       </div>
                     ))}
