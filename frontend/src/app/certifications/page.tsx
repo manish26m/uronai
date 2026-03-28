@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Award, Clock, ArrowRight, ShieldCheck, Loader2 } from "lucide-react";
+import { useSession } from "next-auth/react";
+import { Award, Clock, Loader2, ShieldCheck, Sparkles, ChevronRight, Info } from "lucide-react";
 
 interface Certification {
   id: number;
@@ -11,89 +12,133 @@ interface Certification {
   match: number;
 }
 
+const providerColors: Record<string, { bg: string; text: string; border: string }> = {
+  AWS: { bg: "bg-orange-500/10", text: "text-orange-400", border: "border-orange-500/20" },
+  Google: { bg: "bg-blue-500/10", text: "text-blue-400", border: "border-blue-500/20" },
+  Microsoft: { bg: "bg-sky-500/10", text: "text-sky-400", border: "border-sky-500/20" },
+  CompTIA: { bg: "bg-red-500/10", text: "text-red-400", border: "border-red-500/20" },
+  default: { bg: "bg-purple-500/10", text: "text-purple-400", border: "border-purple-500/20" },
+};
+
 export default function CertificationsPage() {
+  const { data: session } = useSession();
   const [certs, setCerts] = useState<Certification[]>([]);
   const [loading, setLoading] = useState(true);
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
+  const token = (session as any)?.backendToken;
 
   useEffect(() => {
-    fetch('http://127.0.0.1:8000/certifications')
-      .then(res => res.json())
-      .then(data => {
-        setCerts(data);
-        setLoading(false);
-      })
-      .catch(err => {
-        console.error(err);
-        // Fallback mock
+    fetch(`${apiUrl}/certifications`, { headers: token ? { Authorization: `Bearer ${token}` } : {} })
+      .then(r => r.json())
+      .then(d => { setCerts(d); setLoading(false); })
+      .catch(() => {
         setCerts([
           { id: 1, provider: "AWS", name: "AWS Certified Cloud Practitioner", timeline: "3 weeks", match: 75 },
           { id: 2, provider: "Google", name: "Google Data Analytics Professional Certificate", timeline: "2 months", match: 90 },
-          { id: 3, provider: "Microsoft", name: "Azure Fundamentals (AZ-900)", timeline: "4 weeks", match: 60 }
+          { id: 3, provider: "Microsoft", name: "Azure Fundamentals (AZ-900)", timeline: "4 weeks", match: 60 },
+          { id: 4, provider: "CompTIA", name: "CompTIA A+ Core Series", timeline: "6 weeks", match: 40 },
         ]);
         setLoading(false);
       });
-  }, []);
+  }, [token]);
+
+  const sortedCerts = [...certs].sort((a, b) => b.match - a.match);
 
   return (
-    <div className="max-w-5xl mx-auto w-full space-y-8">
-      <div>
-        <div className="flex items-center gap-3 mb-2">
-          <div className="bg-amber-500/20 text-amber-500 p-2 rounded-lg">
-            <Award size={28} />
+    <div className="max-w-5xl mx-auto space-y-8">
+      {/* Header */}
+      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-amber-900/30 via-orange-900/20 to-gray-950 border border-amber-800/30 p-8">
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_bottom_left,rgba(245,158,11,0.12),transparent_70%)] pointer-events-none" />
+        <div className="flex items-center gap-3 mb-3">
+          <div className="p-3 bg-amber-500/15 text-amber-400 rounded-2xl border border-amber-500/20">
+            <Award size={24} />
           </div>
-          <h2 className="text-3xl font-bold tracking-tight">Certification Engine</h2>
+          <div>
+            <h1 className="text-3xl font-black text-white tracking-tight">Certification Engine</h1>
+            <p className="text-amber-400/70 text-sm">Powered by Gemini AI</p>
+          </div>
         </div>
-        <p className="text-gray-400">Discover industry-recognized certifications that match your current skillset.</p>
+        <p className="text-gray-400 text-sm max-w-xl">Discover industry-recognized certifications that perfectly match your current skill level. Higher match = closer to ready.</p>
       </div>
 
       {loading ? (
-        <div className="flex flex-col items-center justify-center p-20 text-gray-400">
-          <Loader2 className="animate-spin mb-4 text-amber-500" size={40} />
-          <p>Finding the best certifications for your profile...</p>
+        <div className="flex flex-col items-center justify-center py-32 text-gray-500 gap-4">
+          <Loader2 className="animate-spin text-amber-500" size={48} />
+          <p className="text-sm font-medium animate-pulse">Matching certifications to your profile...</p>
         </div>
       ) : (
-        <div className="grid gap-6">
-          {certs.map((cert) => (
-            <div key={cert.id} className="bg-gray-900 border border-gray-800 rounded-xl p-6 flex flex-col md:flex-row md:items-center justify-between gap-6 hover:border-amber-500/30 transition-colors">
-              <div className="flex items-start gap-4">
-                <div className="bg-gray-800 p-3 rounded-xl min-w-[64px] flex items-center justify-center font-bold text-lg border border-gray-700">
-                  {cert.provider}
-                </div>
-                <div>
-                  <h3 className="text-xl font-bold mb-1 group-hover:text-amber-400 transition-colors">{cert.name}</h3>
-                  <div className="flex items-center gap-4 text-sm text-gray-400">
-                    <span className="flex items-center gap-1">
-                      <Clock size={16} /> Estimated: {cert.timeline}
-                    </span>
-                    <span className="flex items-center gap-1 text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-md border border-amber-500/20">
-                      <ShieldCheck size={16} /> Skill Match: {cert.match}%
-                    </span>
-                  </div>
-                </div>
-              </div>
+        <div className="space-y-4">
+          {sortedCerts.map((cert, i) => {
+            const p = providerColors[cert.provider] || providerColors.default;
+            const matchColor = cert.match >= 75 ? "text-green-400 bg-green-500/10 border-green-500/20"
+              : cert.match >= 50 ? "text-yellow-400 bg-yellow-500/10 border-yellow-500/20"
+              : "text-red-400 bg-red-500/10 border-red-500/20";
+            const barColor = cert.match >= 75 ? "from-green-500 to-emerald-400"
+              : cert.match >= 50 ? "from-yellow-500 to-orange-400"
+              : "from-red-500 to-rose-400";
 
-              <div className="w-full md:w-auto flex flex-col md:items-end gap-3">
-                <div className="w-full md:w-48 bg-gray-800 rounded-full h-2">
-                  <div 
-                    className="h-2 rounded-full bg-amber-500" 
-                    style={{ width: `${cert.match}%` }}
-                  />
+            return (
+              <div key={cert.id}
+                className="group bg-gray-900/80 border border-gray-800 hover:border-amber-500/20 rounded-2xl overflow-hidden transition-all hover:-translate-y-0.5 hover:shadow-xl hover:shadow-amber-900/10"
+              >
+                {/* Top bar */}
+                <div className="h-0.5 w-full bg-gray-800">
+                  <div className={`h-full bg-gradient-to-r ${barColor} transition-all duration-700`} style={{ width: `${cert.match}%` }} />
                 </div>
-                <button className="w-full md:w-auto flex items-center justify-center gap-2 bg-white hover:bg-gray-200 text-black px-6 py-2 rounded-lg font-bold transition-colors">
-                  View Setup Plan <ArrowRight size={18} />
-                </button>
+
+                <div className="p-5 flex flex-col md:flex-row md:items-center gap-5">
+                  {/* Provider badge */}
+                  <div className={`shrink-0 w-16 h-16 rounded-2xl border ${p.border} ${p.bg} flex items-center justify-center text-xs font-black ${p.text}`}>
+                    {cert.provider}
+                  </div>
+
+                  {/* Content */}
+                  <div className="flex-1 min-w-0">
+                    <h3 className="font-bold text-white text-lg leading-tight">{cert.name}</h3>
+                    <div className="flex flex-wrap items-center gap-3 mt-2">
+                      <span className="flex items-center gap-1.5 text-xs text-gray-500">
+                        <Clock size={12} /> {cert.timeline}
+                      </span>
+                      <span className={`flex items-center gap-1.5 text-xs font-bold px-2.5 py-1 rounded-lg border ${matchColor}`}>
+                        <ShieldCheck size={12} /> {cert.match}% match
+                      </span>
+                      {i === 0 && (
+                        <span className="flex items-center gap-1.5 text-xs font-bold px-2.5 py-1 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-400">
+                          <Sparkles size={12} /> Best Match
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Progress bar */}
+                    <div className="mt-3 flex items-center gap-3">
+                      <div className="flex-1 h-2 bg-gray-800 rounded-full overflow-hidden">
+                        <div className={`h-full bg-gradient-to-r ${barColor} rounded-full`} style={{ width: `${cert.match}%` }} />
+                      </div>
+                      <span className="text-gray-600 text-xs w-12 text-right">{cert.match}% ready</span>
+                    </div>
+                  </div>
+
+                  <button className="shrink-0 flex items-center gap-2 bg-amber-600/80 hover:bg-amber-500 text-white text-sm px-5 py-2.5 rounded-xl font-bold transition-all shadow-md shadow-amber-900/30 whitespace-nowrap">
+                    View Plan <ChevronRight size={14} />
+                  </button>
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
-      
-      <div className="bg-gray-900 border border-t-4 border-t-amber-500 border-gray-800 p-6 rounded-xl mt-8">
-        <h3 className="font-bold text-lg mb-2 text-white">Why Certifications?</h3>
-        <p className="text-gray-400 text-sm leading-relaxed">
-          While your project portfolio demonstrates what you can build, industry certifications from providers like AWS, Google, and Microsoft act as standard benchmarks that instantly signal to recruiters that you meet a foundational baseline of technical competence. Your "Skill Match" percentage tells you how much of the required curriculum you have already covered in the AI Learning OS.
-        </p>
-      </div>
+
+      {!loading && (
+        <div className="flex items-start gap-4 bg-blue-900/10 border border-blue-800/20 rounded-2xl p-5">
+          <Info size={17} className="text-blue-400 shrink-0 mt-0.5" />
+          <div>
+            <h4 className="text-sm font-bold text-white mb-1">Why get certified?</h4>
+            <p className="text-sm text-gray-400 leading-relaxed">
+              Industry certifications from AWS, Google, and Microsoft act as standardized benchmarks that instantly signal competence to recruiters. Your <span className="text-amber-400 font-bold">Skill Match</span> shows how much curriculum you've already covered in UronAI.
+            </p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
