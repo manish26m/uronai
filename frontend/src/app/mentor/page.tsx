@@ -5,8 +5,10 @@ import { useSession } from "next-auth/react";
 import { 
   BrainCircuit, Send, Loader2, Sparkles, User, 
   Settings, Video, Globe, MessageSquare, 
-  Zap, ChevronRight, Bot
+  Zap, ChevronRight, Bot, Target, Award, Compass
 } from "lucide-react";
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 interface Message {
   role: "user" | "assistant";
@@ -194,7 +196,23 @@ export default function MentorPage() {
                     ? "bg-gray-900/80 border border-gray-800 text-gray-200"
                     : "bg-red-600 text-white shadow-xl shadow-red-900/20"
                   }`}>
-                    <div className="whitespace-pre-wrap">{m.content}</div>
+                    {m.role === "assistant" ? (
+                      <div className="prose prose-invert prose-red max-w-none text-sm leading-relaxed 
+                          prose-headings:text-white prose-headings:font-bold prose-headings:mb-2 prose-headings:mt-4
+                          prose-p:mb-3 prose-p:last:mb-0
+                          prose-ul:list-disc prose-ul:pl-4 prose-ul:mb-3
+                          prose-ol:list-decimal prose-ol:pl-4 prose-ol:mb-3
+                          prose-li:mb-1
+                          prose-strong:text-red-400 prose-strong:font-bold
+                          prose-a:text-red-400 prose-a:underline hover:prose-a:text-red-300
+                          prose-code:text-red-300 prose-code:bg-red-500/10 prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded-md prose-code:font-mono">
+                        <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                          {m.content}
+                        </ReactMarkdown>
+                      </div>
+                    ) : (
+                      <div className="whitespace-pre-wrap">{m.content}</div>
+                    )}
                   </div>
                 </div>
               ))
@@ -213,17 +231,46 @@ export default function MentorPage() {
             )}
           </div>
 
-          {/* Input Area */}
-          <div className="p-4 bg-gray-950/80 border-t border-gray-800 backdrop-blur-md">
-            <form onSubmit={handleSend} className="relative max-w-4xl mx-auto w-full">
+          {/* Input Area + Quick Actions */}
+          <div className="p-4 bg-gray-950/80 border-t border-gray-800 backdrop-blur-md flex flex-col items-center">
+            
+            <div className="flex flex-wrap items-center justify-center gap-2 mb-4 w-full max-w-4xl">
+              <button 
+                onClick={() => { setInput("Can you suggest a new subject/roadmap for me to learn?"); setTimeout(() => document.getElementById('chat-submit')?.click(), 50); }}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-900 border border-gray-800 hover:border-red-500 hover:text-red-400 text-gray-400 text-xs font-bold rounded-lg transition-all"
+              >
+                <Target size={12} /> Add New Subject
+              </button>
+              <button 
+                onClick={() => { setInput("Can you modify my current learning focus?"); setTimeout(() => document.getElementById('chat-submit')?.click(), 50); }}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-900 border border-gray-800 hover:border-amber-500 hover:text-amber-400 text-gray-400 text-xs font-bold rounded-lg transition-all"
+              >
+                <Compass size={12} /> Modify Mission
+              </button>
+              <button 
+                onClick={() => { setInput("What certifications should I be targeting based on my progress?"); setTimeout(() => document.getElementById('chat-submit')?.click(), 50); }}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-900 border border-gray-800 hover:border-indigo-500 hover:text-indigo-400 text-gray-400 text-xs font-bold rounded-lg transition-all"
+              >
+                <Award size={12} /> Get Certifications
+              </button>
+              <button 
+                onClick={() => { setInput("Give me some general advice and feedback on my progress."); setTimeout(() => document.getElementById('chat-submit')?.click(), 50); }}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-900 border border-gray-800 hover:border-green-500 hover:text-green-400 text-gray-400 text-xs font-bold rounded-lg transition-all"
+              >
+                <MessageSquare size={12} /> General Advice
+              </button>
+            </div>
+
+            <form onSubmit={handleSend} className="relative max-w-4xl w-full">
               <input 
                 value={input}
                 onChange={e => setInput(e.target.value)}
                 placeholder="Message your mentor..."
                 disabled={loading || introLoading}
-                className="w-full bg-gray-900 border border-gray-700 focus:border-red-500 rounded-2xl pl-6 pr-14 py-4 text-white focus:outline-none transition-all placeholder-gray-600 shadow-inner"
+                className="w-full bg-gray-900 border border-gray-700 focus:border-red-500 rounded-2xl pl-6 pr-14 py-4 text-white focus:outline-none transition-all placeholder-gray-600 shadow-inner block"
               />
               <button 
+                id="chat-submit"
                 type="submit"
                 disabled={!input.trim() || loading || introLoading}
                 className="absolute right-2 top-1/2 -translate-y-1/2 w-10 h-10 bg-red-600 hover:bg-red-500 disabled:opacity-50 text-white rounded-xl flex items-center justify-center transition-all shadow-lg shadow-red-900/40"

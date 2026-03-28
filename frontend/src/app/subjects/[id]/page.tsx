@@ -6,7 +6,8 @@ import { useSession } from "next-auth/react";
 import Link from "next/link";
 import { Loader2, Lock, CheckCircle2, AlertCircle, PlayCircle, Trophy, Sparkles, ChevronLeft, Send, ToggleLeft, ToggleRight, Video, X } from "lucide-react";
 import RoadmapList from "@/components/RoadmapList";
-
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 interface RoadmapNode {
   id: string; title: string; type: string;
   status: string; score?: number; position?: { x: number; y: number };
@@ -312,7 +313,25 @@ export default function LearningArena({ params }: { params: Promise<{ id: string
               <div className="flex-1 overflow-y-auto p-3 flex flex-col gap-3 text-xs scrollbar-thin scrollbar-track-transparent scrollbar-thumb-gray-800">
                 {chatHistory.length === 0 && activeNode && <p className="text-gray-600 italic text-center mt-4">Ask anything about <strong className="text-gray-400">{activeNode.title}</strong></p>}
                 {chatHistory.map((m, i) => (
-                  <div key={i} className={`p-2.5 rounded-xl max-w-[90%] leading-relaxed ${m.role === 'user' ? 'bg-red-600/15 text-red-100 self-end border border-red-500/20' : 'bg-gray-800/80 text-gray-200 self-start border border-gray-700/50'}`}>{m.content}</div>
+                  <div key={i} className={`p-2.5 rounded-xl max-w-[90%] leading-relaxed ${m.role === 'user' ? 'bg-red-600/15 text-red-100 self-end border border-red-500/20' : 'bg-gray-800/80 text-gray-200 self-start border border-gray-700/50'}`}>
+                    {m.role === "assistant" ? (
+                      <div className="prose prose-invert prose-red max-w-none text-xs leading-relaxed 
+                          prose-headings:text-white prose-headings:font-bold prose-headings:my-1
+                          prose-p:mb-2 prose-p:last:mb-0
+                          prose-ul:list-disc prose-ul:pl-4 prose-ul:mb-2
+                          prose-ol:list-decimal prose-ol:pl-4 prose-ol:mb-2
+                          prose-li:mb-1
+                          prose-strong:text-amber-400 prose-strong:font-bold
+                          prose-a:text-red-400 prose-a:underline
+                          prose-code:text-red-300 prose-code:bg-red-500/10 prose-code:px-1 prose-code:rounded">
+                        <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                          {m.content}
+                        </ReactMarkdown>
+                      </div>
+                    ) : (
+                      <div className="whitespace-pre-wrap">{m.content}</div>
+                    )}
+                  </div>
                 ))}
                 {chatLoading && <div className="self-start bg-gray-800 rounded-xl p-2 border border-gray-700"><Loader2 className="animate-spin text-gray-500" size={12} /></div>}
               </div>
