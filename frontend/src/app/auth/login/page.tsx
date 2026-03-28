@@ -1,85 +1,133 @@
 "use client";
-import { useState } from "react";
-import { signIn } from "next-auth/react";
+import { useState, useEffect } from "react";
+import { signIn, useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Loader2, Mail, Lock, Eye, EyeOff, ArrowRight, XCircle } from "lucide-react";
+import { Loader2, Mail, Lock, Eye, EyeOff, ArrowRight, XCircle, UserPlus } from "lucide-react";
+
+const API = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
+
+type ErrorType = "wrong_password" | "not_found" | "not_verified" | "generic" | null;
 
 export default function LoginPage() {
   const router = useRouter();
+  const { status } = useSession();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPass, setShowPass] = useState(false);
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
-  const [error, setError] = useState("");
+  const [errorType, setErrorType] = useState<ErrorType>(null);
+  const [errorMsg, setErrorMsg] = useState("");
+
+  // Redirect authenticated users away immediately
+  useEffect(() => {
+    if (status === "authenticated") router.replace("/dashboard");
+  }, [status, router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true); setError("");
+    setLoading(true);
+    setErrorType(null);
+    setErrorMsg("");
+
     try {
-      const checkRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000"}/auth/login`, {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password })
+      // Step 1: Check credentials via our backend directly
+      const checkRes = await fetch(`${API}/auth/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
       });
       const data = await checkRes.json();
-      if (data.status === "verify_email") {
-        router.push(`/auth/verify-email?email=${encodeURIComponent(email)}`);
-        setLoading(false); return;
+
+      // Handle specific backend errors
+      if (checkRes.status === 404) {
+        setErrorType("not_found");
+        setErrorMsg(data.detail || "No account found with this email.");
+        setLoading(false);
+        return;
       }
+      if (checkRes.status === 401) {
+        setErrorType("wrong_password");
+        setErrorMsg(data.detail || "Incorrect password.");
+        setLoading(false);
+        return;
+      }
+      if (data.status === "verify_email") {
+        setErrorType("not_verified");
+        setErrorMsg("Your email isn't verified yet.");
+        router.push(`/auth/verify-email?email=${encodeURIComponent(email)}`);
+        setLoading(false);
+        return;
+      }
+
+      // Step 2: If backend is happy, sign in via NextAuth
       const result = await signIn("credentials", { email, password, redirect: false });
-      if (result?.ok) router.push("/dashboard");
-      else setError("Invalid email or password. Please try again.");
-    } catch { setError("Connection error. Please try again."); }
-    finally { setLoading(false); }
+      if (result?.ok) {
+        router.replace("/dashboard");
+      } else {
+        setErrorType("generic");
+        setErrorMsg("Something went wrong. Please try again.");
+      }
+    } catch {
+      setErrorType("generic");
+      setErrorMsg("Connection error. Is the server running?");
+    } finally {
+      setLoading(false);
+    }
   };
+
+  if (status === "loading") return null;
 
   return (
     <div className="min-h-screen bg-[#07080f] flex relative overflow-hidden">
-      {/* Left decorative panel */}
-      <div className="hidden lg:flex flex-1 flex-col justify-between p-12 bg-gradient-to-br from-indigo-950/60 via-blue-950/40 to-[#07080f] border-r border-white/5 relative overflow-hidden">
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_bottom_right,rgba(59,130,246,0.18),transparent_70%)] pointer-events-none" />
-        <div className="absolute top-0 right-0 w-72 h-72 bg-purple-600/10 rounded-full blur-3xl" />
+      {/* ── Left decorative panel ── */}
+      <div className="hidden lg:flex flex-1 flex-col justify-between p-14 relative overflow-hidden border-r border-white/5">
+        <div className="absolute inset-0 bg-gradient-to-br from-indigo-950/70 via-blue-950/40 to-[#07080f]" />
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_bottom_right,rgba(59,130,246,0.18),transparent_65%)]" />
+        <div className="absolute top-0 right-0 w-80 h-80 bg-purple-600/8 rounded-full blur-3xl" />
+
         <Link href="/" className="flex items-center gap-3 relative z-10">
-          <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl flex items-center justify-center text-white font-black text-xl shadow-lg shadow-blue-900/50">U</div>
+          <div className="w-11 h-11 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl flex items-center justify-center text-white font-black text-xl shadow-xl shadow-blue-900/50">U</div>
           <span className="text-2xl font-black text-white tracking-tight">uron<span className="text-blue-400">ai</span></span>
         </Link>
-        <div className="relative z-10 space-y-8">
+
+        <div className="relative z-10 space-y-10">
           <div>
-            <h2 className="text-4xl font-light text-white/90 leading-tight mb-4">
-              Welcome back to your<br />
-              <span className="font-black">learning universe.</span>
+            <h2 className="text-4xl font-extralight text-white/80 leading-tight mb-4 tracking-tight">
+              Welcome back to<br />
+              <span className="font-black text-white">your learning universe.</span>
             </h2>
-            <p className="text-gray-500 leading-relaxed">Your personalized AI roadmaps, quizzes, and mentor are waiting for you.</p>
+            <p className="text-gray-500 text-sm leading-relaxed max-w-xs">Your AI-curated roadmaps, assessments, and mentor are ready and waiting.</p>
           </div>
-          <div className="flex flex-wrap gap-4">
+          <div className="flex flex-wrap gap-3">
             {[["🧠", "AI Mentor"], ["🗺️", "Smart Roadmaps"], ["🏆", "XP & Levels"], ["📊", "Career Match"]].map(([icon, lbl]) => (
-              <div key={lbl} className="flex items-center gap-2 bg-white/5 border border-white/10 rounded-xl px-3 py-2">
-                <span>{icon}</span>
-                <span className="text-xs text-gray-400 font-medium">{lbl}</span>
+              <div key={lbl} className="flex items-center gap-2 bg-white/5 border border-white/10 rounded-xl px-3 py-2 backdrop-blur-sm">
+                <span className="text-base">{icon}</span>
+                <span className="text-xs text-gray-400 font-semibold">{lbl}</span>
               </div>
             ))}
           </div>
         </div>
-        <p className="text-gray-700 text-xs relative z-10">© {new Date().getFullYear()} UronAI. All rights reserved.</p>
+        <p className="text-gray-800 text-xs relative z-10">© {new Date().getFullYear()} UronAI. All rights reserved.</p>
       </div>
 
-      {/* Right form panel */}
-      <div className="flex-1 flex items-center justify-center p-6 lg:p-12">
-        <div className="w-full max-w-md">
-          <Link href="/" className="flex items-center gap-2 mb-8 lg:hidden">
+      {/* ── Right form panel ── */}
+      <div className="flex-1 flex items-center justify-center p-6 lg:p-14">
+        <div className="w-full max-w-sm">
+          <Link href="/" className="flex items-center gap-2 mb-10 lg:hidden">
             <div className="w-9 h-9 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center text-white font-black text-lg">U</div>
             <span className="text-xl font-black text-white">uron<span className="text-blue-400">ai</span></span>
           </Link>
 
           <div className="mb-8">
-            <h1 className="text-4xl font-black text-white tracking-tight mb-2">Sign in</h1>
-            <p className="text-gray-500">Continue your adaptive learning journey.</p>
+            <h1 className="text-[2.5rem] font-black text-white tracking-tight leading-none mb-2">Sign in</h1>
+            <p className="text-gray-500 text-sm">Continue your adaptive learning journey.</p>
           </div>
 
           {/* Google */}
           <button onClick={() => { setGoogleLoading(true); signIn("google", { callbackUrl: "/dashboard" }); }} disabled={googleLoading}
-            className="w-full flex items-center justify-center gap-3 bg-white hover:bg-gray-100 text-gray-900 font-semibold py-3.5 px-4 rounded-xl transition-all mb-6 disabled:opacity-60 shadow-lg"
+            className="w-full flex items-center justify-center gap-3 bg-white hover:bg-gray-50 text-gray-900 font-semibold py-3.5 px-4 rounded-2xl transition-all mb-6 disabled:opacity-60 shadow-lg shadow-black/20"
           >
             {googleLoading ? <Loader2 className="animate-spin" size={18} /> : (
               <svg viewBox="0 0 24 24" className="w-5 h-5">
@@ -92,53 +140,83 @@ export default function LoginPage() {
             Continue with Google
           </button>
 
-          <div className="flex items-center gap-4 mb-6">
+          <div className="flex items-center gap-3 mb-6">
             <div className="flex-1 h-px bg-gray-800" />
-            <span className="text-gray-600 text-xs font-medium uppercase tracking-wider">or email</span>
+            <span className="text-gray-700 text-[11px] font-semibold uppercase tracking-widest">or</span>
             <div className="flex-1 h-px bg-gray-800" />
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Email</label>
+              <label className="block text-[11px] font-bold text-gray-600 uppercase tracking-widest mb-2">Email address</label>
               <div className="relative">
-                <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-600" size={16} />
-                <input type="email" value={email} onChange={e => setEmail(e.target.value)} required placeholder="you@example.com"
-                  autoComplete="email"
-                  className="w-full bg-gray-900/80 border border-gray-800 focus:border-blue-500 rounded-xl pl-10 pr-4 py-3.5 text-white placeholder-gray-700 focus:outline-none transition text-sm"
+                <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-600" size={16} />
+                <input type="email" value={email} onChange={e => { setEmail(e.target.value); setErrorType(null); }} required
+                  placeholder="you@example.com" autoComplete="email"
+                  className={`w-full bg-gray-900/70 border rounded-2xl pl-11 pr-4 py-3.5 text-white placeholder-gray-700 focus:outline-none transition text-sm ${errorType === "not_found" ? "border-orange-500 focus:border-orange-400" : "border-gray-800 focus:border-blue-500"}`}
                 />
               </div>
             </div>
+
             <div>
-              <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Password</label>
+              <label className="block text-[11px] font-bold text-gray-600 uppercase tracking-widest mb-2">Password</label>
               <div className="relative">
-                <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-600" size={16} />
-                <input type={showPass ? "text" : "password"} value={password} onChange={e => setPassword(e.target.value)} required placeholder="Your password"
-                  autoComplete="current-password"
-                  className="w-full bg-gray-900/80 border border-gray-800 focus:border-blue-500 rounded-xl pl-10 pr-10 py-3.5 text-white placeholder-gray-700 focus:outline-none transition text-sm"
+                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-600" size={16} />
+                <input type={showPass ? "text" : "password"} value={password} onChange={e => { setPassword(e.target.value); setErrorType(null); }} required
+                  placeholder="Your password" autoComplete="current-password"
+                  className={`w-full bg-gray-900/70 border rounded-2xl pl-11 pr-11 py-3.5 text-white placeholder-gray-700 focus:outline-none transition text-sm ${errorType === "wrong_password" ? "border-red-500 focus:border-red-400" : "border-gray-800 focus:border-blue-500"}`}
                 />
-                <button type="button" onClick={() => setShowPass(!showPass)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-600 hover:text-gray-300">
+                <button type="button" onClick={() => setShowPass(!showPass)} className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-600 hover:text-gray-300 transition">
                   {showPass ? <EyeOff size={16} /> : <Eye size={16} />}
                 </button>
               </div>
             </div>
 
-            {error && (
-              <div className="flex items-start gap-2 bg-red-950/40 border border-red-800/50 text-red-400 text-sm px-4 py-3 rounded-xl">
-                <XCircle size={15} className="mt-0.5 shrink-0" /> {error}
+            {/* Error Messages */}
+            {errorType === "not_found" && (
+              <div className="rounded-2xl border border-orange-500/30 bg-orange-950/20 p-4">
+                <div className="flex items-start gap-3">
+                  <XCircle size={16} className="text-orange-400 mt-0.5 shrink-0" />
+                  <div>
+                    <p className="text-orange-300 text-sm font-semibold">Account not found</p>
+                    <p className="text-orange-400/70 text-xs mt-0.5">No account with this email exists.</p>
+                  </div>
+                </div>
+                <Link href={`/auth/register`}
+                  className="mt-3 flex items-center gap-2 bg-orange-500/10 hover:bg-orange-500/20 border border-orange-500/20 text-orange-300 text-sm font-bold px-4 py-2 rounded-xl transition w-full justify-center"
+                >
+                  <UserPlus size={15} /> Create a free account
+                </Link>
+              </div>
+            )}
+
+            {errorType === "wrong_password" && (
+              <div className="flex items-start gap-3 rounded-2xl border border-red-500/30 bg-red-950/20 p-4">
+                <XCircle size={16} className="text-red-400 mt-0.5 shrink-0" />
+                <div>
+                  <p className="text-red-300 text-sm font-semibold">Incorrect password</p>
+                  <p className="text-red-400/70 text-xs mt-0.5">Double-check your password and try again.</p>
+                </div>
+              </div>
+            )}
+
+            {(errorType === "generic" || errorType === "not_verified") && (
+              <div className="flex items-start gap-3 rounded-2xl border border-gray-700 bg-gray-900/50 p-4">
+                <XCircle size={16} className="text-gray-400 mt-0.5 shrink-0" />
+                <p className="text-gray-300 text-sm">{errorMsg}</p>
               </div>
             )}
 
             <button type="submit" disabled={loading}
-              className="w-full bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 disabled:opacity-60 text-white font-bold py-4 rounded-xl transition-all shadow-lg shadow-blue-900/30 flex items-center justify-center gap-2"
+              className="w-full bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 disabled:opacity-50 text-white font-bold py-4 rounded-2xl transition-all shadow-xl shadow-blue-900/25 flex items-center justify-center gap-2 mt-2"
             >
               {loading ? <Loader2 className="animate-spin" size={18} /> : <><ArrowRight size={18} /> Sign In</>}
             </button>
           </form>
 
-          <p className="text-center text-gray-600 text-sm mt-6">
+          <p className="text-center text-gray-700 text-sm mt-6">
             Don&apos;t have an account?{" "}
-            <Link href="/auth/register" className="text-blue-400 hover:text-blue-300 font-semibold transition">Create one free</Link>
+            <Link href="/auth/register" className="text-blue-400 hover:text-blue-300 font-bold transition">Create one free →</Link>
           </p>
         </div>
       </div>

@@ -283,8 +283,10 @@ def resend_otp(email: EmailStr):
 @app.post("/auth/login")
 def login(user: UserLogin):
     db_user = user_collection.find_one({"email": user.email})
-    if not db_user or not verify_password(user.password, db_user.get("hashed_password", "")):
-        raise HTTPException(status_code=401, detail="Invalid email or password")
+    if not db_user:
+        raise HTTPException(status_code=404, detail="No account found with this email. Please sign up first.")
+    if not verify_password(user.password, db_user.get("hashed_password", "")):
+        raise HTTPException(status_code=401, detail="Incorrect password. Please try again.")
     
     if not db_user.get("is_verified", True) and db_user.get("role") != "admin":
         return {"status": "verify_email", "message": "Please verify your email"}
