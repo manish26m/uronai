@@ -265,21 +265,24 @@ export default function LearningArena({ params }: { params: Promise<{ id: string
                   </div>
                 ) : (
                   <div className="flex-1 flex flex-col gap-3 min-h-0">
-                    <div className="shrink-0 bg-black rounded-2xl border border-gray-800/50 overflow-hidden aspect-video relative shadow-2xl">
+                    <div className="shrink-0 bg-black rounded-2xl border border-gray-800/50 overflow-hidden shadow-2xl w-full" style={{ paddingBottom: '56.25%', position: 'relative' }}>
                       {videoLoading ? (
                         <div className="absolute inset-0 flex flex-col items-center justify-center text-gray-600">
                           <Loader2 className="animate-spin mb-2" size={28} /><span className="text-sm">Finding best tutorial...</span>
                         </div>
                       ) : videoId ? (
-                        <iframe width="100%" height="100%" className="absolute inset-0 border-0"
-                          src={`https://www.youtube.com/embed/${videoId}`} title={activeNode.title}
-                          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen
+                        <iframe
+                          className="absolute inset-0 w-full h-full border-0"
+                          src={`https://www.youtube.com/embed/${videoId}?rel=0&modestbranding=1`}
+                          title={activeNode.title}
+                          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                          allowFullScreen
                         />
                       ) : (
                         <div className="absolute inset-0 flex flex-col items-center justify-center text-gray-700 gap-2">
                           <PlayCircle size={40} />
                           <p className="text-xs text-gray-600">
-                            {!ytEnabled ? "YouTube recommendations are OFF" : "No video available"}
+                            {!ytEnabled ? "YouTube recommendations are OFF" : "Click a module to load its video"}
                           </p>
                         </div>
                       )}
