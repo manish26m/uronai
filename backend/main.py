@@ -399,20 +399,33 @@ def generate_detailed_roadmap(req: WizardRequest, user=Depends(get_current_user)
         extra = f" Base the roadmap strictly and exclusively on this YouTube video transcript. Mirror its chapters and sections exactly without hallucinating external topics: {transcript_snippet}"
     
     prompt = (
-        f"Create a highly detailed, comprehensive learning roadmap for '{req.goal}'. The timeframe is '{req.timeframe}'. "
-        f"YOU MUST ORGANIZE THIS INTO A STRICT TIMETABLE (e.g. prefix module titles with 'Week 1:', 'Day 1:', etc., evenly distributed). "
+        f"Create a highly detailed learning roadmap for '{req.goal}'. Timeframe: '{req.timeframe}'.\n"
+        f"ORGANIZE THIS INTO A STRICT TIMETABLE (Prefix titles with 'Week 1:', 'Day 1:', etc.).\n"
         f"{extra}\n"
-        "FOR LARGE PLAYLISTS: You MUST generate exactly ONE module for EVERY video listed. Do not skip any. "
-        "Output ONLY a raw JSON array of sequential module objects. "
-        "Format exactly as: [{\"id\":\"1\",\"title\":\"Week 1: Module Name\",\"description\":\"...\"}]"
+        "RULES:\n"
+        "1. Output ONLY a raw, syntactically valid JSON array of objects. NO Markdown formatting, NO ```json wrapping.\n"
+        "2. You MUST use strict double quotes for all JSON keys and string values.\n"
+        "3. You MUST properly escape any inner double quotes inside the description text using a backslash \\\" \n"
+        "4. Exact format required: [{\"id\": \"1\", \"title\": \"Week 1: Intro\", \"description\": \"Detailed text\"}]\n"
+        "5. For playlists, generate exactly ONE module per video, strictly ordered."
     )
 
     try:
         text = generate_gemini_content(prompt, db_user.get("gemini_api_key", ""), "gemini-pro")
-        text = text.replace("```json", "").replace("```", "").strip()
+        text = text.strip()
+        if text.startswith("```json"): text = text[7:]
+        elif text.startswith("```"): text = text[3:]
+        if text.endswith("```"): text = text[:-3]
+        text = text.strip()
+        
         s, e = text.find("["), text.rfind("]")
         if s != -1 and e != -1:
-            modules = json.loads(text[s:e+1])
+            try:
+                modules = json.loads(text[s:e+1])
+            except json.JSONDecodeError as je:
+                print(f"JSON Parsing failed. Raw Output: {text[s:e+1]}")
+                raise HTTPException(status_code=500, detail=f"AI output was invalid JSON: {str(je)}")
+            
             nodes, edges, y = [], [], 0
             for i, m in enumerate(modules):
                 nid = str(m.get("id", i + 1))
