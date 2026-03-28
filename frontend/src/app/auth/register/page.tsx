@@ -222,7 +222,7 @@ export default function RegisterPage() {
 
               {!otpSuccess && (
                 <>
-                  <div className="flex gap-2.5 mb-5" onPaste={handleOtpPaste}>
+                  <div className="flex justify-between gap-2 mb-5 w-full mx-auto" onPaste={handleOtpPaste}>
                     {otp.map((digit, idx) => (
                       <input
                         key={idx}
@@ -231,7 +231,7 @@ export default function RegisterPage() {
                         value={digit}
                         onChange={e => handleOtpChange(e.target.value, idx)}
                         onKeyDown={e => handleOtpKey(e, idx)}
-                        className={`flex-1 h-14 rounded-2xl text-center text-2xl font-black focus:outline-none border-2 transition-all ${
+                        className={`w-12 h-14 sm:w-14 sm:h-16 rounded-2xl text-center text-2xl font-black focus:outline-none border-2 transition-all ${
                           otpError ? "border-red-500 bg-red-950/20 text-red-300"
                           : digit ? "border-blue-500 bg-blue-500/10 text-white"
                           : "border-gray-800 bg-gray-900/60 text-white focus:border-blue-500"

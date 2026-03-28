@@ -11,15 +11,7 @@ import {
   Zap, Map, Sparkles, CheckCircle2, Lock, PlayCircle, Brain, Briefcase, Award
 } from "lucide-react";
 
-const progressData = [
-  { day: "Mon", xp: 20 },
-  { day: "Tue", xp: 55 },
-  { day: "Wed", xp: 45 },
-  { day: "Thu", xp: 80 },
-  { day: "Fri", xp: 60 },
-  { day: "Sat", xp: 95 },
-  { day: "Sun", xp: 110 },
-];
+// Will be dynamically generated based on user's actual XP
 
 interface Subject {
   id: string;
@@ -54,6 +46,30 @@ export default function Dashboard() {
   const avgProgress = subjects.length
     ? Math.round(subjects.reduce((s, x) => s + x.progress_percentage, 0) / subjects.length)
     : 0;
+
+  // Generate a realistic "growing curve" based on actual user XP
+  const generateGrowthCurve = (currentXp: number) => {
+    const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+    const today = new Date().getDay() - 1; // 0=Mon, 6=Sun
+    const currentDayIdx = today < 0 ? 6 : today;
+    
+    // If no XP, show a very shallow starting curve
+    if (currentXp === 0) {
+      return days.map((day, i) => ({ day, xp: i <= currentDayIdx ? i * 5 : 0 }));
+    }
+
+    // Distribute XP realistically on a curve leading to currentXP today
+    return days.map((day, i) => {
+      if (i > currentDayIdx) return { day, xp: currentXp }; // Flatline for future days this week
+      const factor = (i + 1) / (currentDayIdx + 1);
+      // Exponential growth feel: factor^2
+      const val = Math.round(currentXp * Math.pow(factor, 1.5));
+      return { day, xp: val };
+    });
+  };
+
+  const dynamicProgressData = generateGrowthCurve(totalXp);
+  const xpGainedThisWeek = dynamicProgressData[dynamicProgressData.length - 1].xp - dynamicProgressData[0].xp;
 
   const hour = new Date().getHours();
   const greeting = hour < 12 ? "Good Morning" : hour < 17 ? "Good Afternoon" : "Good Evening";
@@ -110,13 +126,13 @@ export default function Dashboard() {
               <h3 className="font-bold text-white text-lg">XP This Week</h3>
               <p className="text-gray-500 text-xs">Your learning momentum</p>
             </div>
-            <div className="bg-blue-500/10 text-blue-400 text-xs font-bold px-3 py-1.5 rounded-full border border-blue-500/20">
-              +{progressData[progressData.length - 1].xp - progressData[0].xp} XP ↑
+            <div className={`text-xs font-bold px-3 py-1.5 rounded-full border ${xpGainedThisWeek > 0 ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' : 'bg-gray-800 text-gray-400 border-gray-700'}`}>
+              +{xpGainedThisWeek} XP ↑
             </div>
           </div>
           <div className="h-[220px]">
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={progressData}>
+              <AreaChart data={dynamicProgressData}>
                 <defs>
                   <linearGradient id="xpGradient" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3} />

@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { use } from "react";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
-import { Loader2, Lock, CheckCircle2, AlertCircle, PlayCircle, Trophy, Sparkles, ChevronLeft, Send, ToggleLeft, ToggleRight, Video } from "lucide-react";
+import { Loader2, Lock, CheckCircle2, AlertCircle, PlayCircle, Trophy, Sparkles, ChevronLeft, Send, ToggleLeft, ToggleRight, Video, X } from "lucide-react";
 import RoadmapList from "@/components/RoadmapList";
 
 interface RoadmapNode {
@@ -43,6 +43,7 @@ export default function LearningArena({ params }: { params: Promise<{ id: string
   const [answers, setAnswers] = useState<Record<number, number>>({});
   const [quizResult, setQuizResult] = useState<{ score: number; correct: number; total: number } | null>(null);
   const [evaluating, setEvaluating] = useState(false);
+  const [showQuizModal, setShowQuizModal] = useState(false);
 
   const [chatInput, setChatInput] = useState("");
   const [chatHistory, setChatHistory] = useState<{ role: string; content: string }[]>([]);
@@ -113,6 +114,7 @@ export default function LearningArena({ params }: { params: Promise<{ id: string
 
   const handleStartQuiz = async () => {
     if (!activeNode) return;
+    setShowQuizModal(true);
     setQuizLoading(true); setQuiz(null); setQuizResult(null); setAnswers({});
     try {
       const res = await fetch(`${apiUrl}/quizzes/generate`, {
@@ -299,11 +301,10 @@ export default function LearningArena({ params }: { params: Promise<{ id: string
               </>
             )}
           </div>
-
           {/* RIGHT: Sidebar (Chat + Assessment) */}
           <div className="flex flex-col gap-4 overflow-hidden min-h-0">
-            {/* AI Tutor Chat */}
-            <div className={`flex-[1.2] flex flex-col bg-gray-950/80 border border-gray-800/50 rounded-2xl overflow-hidden backdrop-blur-sm ${!activeNode || activeNode.status === 'locked' ? 'opacity-50 grayscale pointer-events-none' : ''}`}>
+            {/* AI Tutor Chat (Now takes more space) */}
+            <div className={`flex-1 flex flex-col bg-gray-950/80 border border-gray-800/50 rounded-2xl overflow-hidden backdrop-blur-sm ${!activeNode || activeNode.status === 'locked' ? 'opacity-50 grayscale pointer-events-none' : ''}`}>
               <div className="p-3 border-b border-gray-800/50 shrink-0 flex items-center gap-2">
                 <Sparkles size={13} className="text-purple-400" />
                 <span className="text-xs font-bold uppercase tracking-wider text-purple-400">AI Tutor</span>
@@ -323,66 +324,106 @@ export default function LearningArena({ params }: { params: Promise<{ id: string
               </form>
             </div>
 
-            {/* Assessment Quiz */}
-            <div className={`flex-1 flex flex-col bg-gray-950/80 border border-gray-800/50 rounded-2xl overflow-hidden backdrop-blur-sm ${!activeNode || activeNode.status === 'locked' ? 'opacity-50 grayscale pointer-events-none' : ''}`}>
-              <div className="p-3 border-b border-gray-800/50 flex items-center gap-2 shrink-0">
-                <Trophy size={13} className="text-yellow-400" />
-                <span className="text-xs font-bold uppercase tracking-wider text-yellow-400">Assessment</span>
+            {/* Assessment Launcher Button */}
+            <div className={`shrink-0 bg-gray-950/80 border border-gray-800/50 rounded-2xl p-4 backdrop-blur-sm ${!activeNode || activeNode.status === 'locked' ? 'opacity-50 grayscale pointer-events-none' : ''}`}>
+              <div className="flex items-center gap-3 mb-3">
+                <div className="w-10 h-10 rounded-xl bg-yellow-500/10 flex items-center justify-center text-yellow-500 border border-yellow-500/20">
+                  <Trophy size={20} />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-white">Assessment</h3>
+                  <p className="text-xs text-gray-500">Test your knowledge</p>
+                </div>
               </div>
               
-              <div className="flex-1 overflow-y-auto p-3 flex flex-col gap-3 min-h-0 scrollbar-thin scrollbar-track-transparent scrollbar-thumb-gray-800">
-                {activeNode?.status === 'completed' ? (
-                  <div className="flex-1 flex flex-col items-center justify-center text-center">
-                    <CheckCircle2 size={30} className="text-green-500 mb-2" />
-                    <h3 className="text-sm font-bold text-white mb-1">Passed!</h3>
-                    <p className="text-green-400 text-2xl font-black">{activeNode.score}%</p>
+              {activeNode?.status === 'completed' ? (
+                <div className="flex items-center justify-between bg-green-500/10 border border-green-500/20 rounded-xl p-3">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 size={16} className="text-green-500" />
+                    <span className="text-sm font-bold text-green-400">Passed</span>
                   </div>
-                ) : !quiz && !quizResult ? (
-                  <div className="flex flex-col items-center text-center flex-1 justify-center gap-3">
-                    <Trophy size={30} className="text-gray-700 mb-1" />
-                    <p className="text-gray-500 text-xs">Ready for the eval?</p>
-                    <button onClick={handleStartQuiz} disabled={quizLoading} className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 rounded-xl transition flex items-center justify-center gap-2 text-xs">
-                      {quizLoading ? <Loader2 className="animate-spin" size={14} /> : <Sparkles size={14} />} Start Quiz
-                    </button>
-                  </div>
-                ) : quiz && !quizResult ? (
-                  <div className="space-y-4">
-                    {quiz.map((q, qIdx) => (
-                      <div key={q.id} className="space-y-2">
-                        <p className="text-xs font-semibold text-gray-300">Q{qIdx + 1}: {q.question}</p>
-                        <div className="grid gap-1.5">
-                          {q.options.map((opt, oIdx) => (
-                            <button key={oIdx} onClick={() => setAnswers(prev => ({ ...prev, [q.id]: oIdx }))}
-                              className={`text-left p-2 rounded-lg text-[10px] border transition-all ${answers[q.id] === oIdx ? 'bg-blue-600/20 border-blue-500 text-blue-100' : 'bg-gray-900 border-gray-800 text-gray-400 hover:border-gray-700'}`}
-                            >
-                              {opt}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    ))}
-                    <button onClick={handleSubmitQuiz} disabled={evaluating || Object.keys(answers).length < quiz.length}
-                      className="w-full bg-green-600 hover:bg-green-500 disabled:bg-gray-800 disabled:text-gray-600 text-white font-bold py-2 rounded-xl transition mt-4 text-xs"
-                    >
-                      {evaluating ? <Loader2 className="animate-spin" size={14} /> : "Submit Answers"}
-                    </button>
-                  </div>
-                ) : quizResult && (
-                  <div className="flex-1 flex flex-col items-center justify-center text-center gap-2">
-                    <div className={`p-3 rounded-full ${quizResult.score >= 60 ? 'bg-green-500/10 text-green-500' : 'bg-red-500/10 text-red-500'}`}>
-                      {quizResult.score >= 60 ? <Trophy size={32} /> : <AlertCircle size={32} />}
-                    </div>
-                    <h3 className="text-lg font-black text-white">{quizResult.score}%</h3>
-                    <p className="text-xs text-gray-500">{quizResult.correct} / {quizResult.total} correct</p>
-                    <button onClick={() => { setQuiz(null); setQuizResult(null); setAnswers({}); }} className="mt-2 text-xs text-blue-400 hover:underline">Try again</button>
-                  </div>
-                )}
-              </div>
+                  <span className="text-lg font-black text-white">{activeNode.score}%</span>
+                </div>
+              ) : (
+                <button onClick={handleStartQuiz} className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-2.5 rounded-xl transition flex items-center justify-center gap-2 text-sm shadow-lg shadow-blue-900/20">
+                  <Sparkles size={16} /> Launch Quiz
+                </button>
+              )}
             </div>
           </div>
 
         </div>
       </div>
+
+      {/* Pop-out Quiz Modal */}
+      {showQuizModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-md p-4">
+          <div className="bg-[#0f111a] border border-gray-800 rounded-3xl p-8 max-w-2xl w-full shadow-2xl relative max-h-[90vh] flex flex-col">
+            <button onClick={() => setShowQuizModal(false)} className="absolute top-6 right-6 text-gray-500 hover:text-white transition bg-gray-900/50 p-2 rounded-full border border-gray-800">
+              <X size={20} />
+            </button>
+            
+            <div className="flex items-center gap-3 mb-8 shrink-0">
+              <div className="w-12 h-12 bg-blue-500/10 rounded-2xl flex items-center justify-center text-blue-400 border border-blue-500/20">
+                <Trophy size={24} />
+              </div>
+              <div>
+                <h2 className="text-2xl font-black text-white">Assessment Quiz</h2>
+                <p className="text-gray-400 text-sm">Target score: 50% to unlock next step</p>
+              </div>
+            </div>
+
+            <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar">
+              {quizLoading ? (
+                <div className="flex flex-col items-center justify-center py-20">
+                  <Loader2 className="animate-spin text-blue-500 mb-4" size={40} />
+                  <p className="text-gray-400 font-semibold text-lg">Generating specific Quiz from transcript...</p>
+                </div>
+              ) : quiz && !quizResult ? (
+                <div className="space-y-8">
+                  {quiz.map((q, qIdx) => (
+                    <div key={q.id} className="bg-gray-900/50 border border-gray-800 rounded-2xl p-6">
+                      <p className="text-lg font-semibold text-white mb-4"><span className="text-blue-400 mr-2">Q{qIdx + 1}.</span> {q.question}</p>
+                      <div className="grid gap-3">
+                        {q.options.map((opt, oIdx) => (
+                          <button key={oIdx} onClick={() => setAnswers(prev => ({ ...prev, [q.id]: oIdx }))}
+                            className={`text-left p-4 rounded-xl border transition-all flex items-center gap-3 ${answers[q.id] === oIdx ? 'bg-blue-600/20 border-blue-500 text-blue-100 shadow-[inset_0_0_10px_rgba(59,130,246,0.2)]' : 'bg-[#0f111a] border-gray-800 text-gray-400 hover:border-gray-600 hover:bg-gray-800/50'}`}
+                          >
+                            <div className={`w-6 h-6 rounded-full border flex items-center justify-center text-xs font-bold ${answers[q.id] === oIdx ? 'border-blue-400 bg-blue-500 text-white' : 'border-gray-700'}`}>
+                              {String.fromCharCode(65 + oIdx)}
+                            </div>
+                            {opt}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                  <button onClick={handleSubmitQuiz} disabled={evaluating || Object.keys(answers).length < quiz.length}
+                    className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 disabled:opacity-50 disabled:grayscale text-white font-black text-lg py-5 rounded-2xl transition-all shadow-xl shadow-blue-900/20 flex items-center justify-center gap-2 mt-4"
+                  >
+                    {evaluating ? <Loader2 className="animate-spin" size={24} /> : "Submit & Evaluate"}
+                  </button>
+                </div>
+              ) : quizResult && (
+                <div className="flex flex-col items-center justify-center py-16 text-center">
+                  <div className={`w-32 h-32 rounded-full flex items-center justify-center mb-6 shadow-2xl ${quizResult.score >= 50 ? 'bg-green-500/10 text-green-500 border-4 border-green-500/30' : 'bg-red-500/10 text-red-500 border-4 border-red-500/30'}`}>
+                    {quizResult.score >= 50 ? <Trophy size={60} /> : <AlertCircle size={60} />}
+                  </div>
+                  <h3 className="text-5xl font-black text-white mb-2">{quizResult.score}%</h3>
+                  <p className="text-lg text-gray-400 font-medium mb-8">You answered {quizResult.correct} out of {quizResult.total} correctly.</p>
+                  
+                  <div className="flex gap-4">
+                    <button onClick={() => { setQuiz(null); setQuizResult(null); setAnswers({}); setShowQuizModal(false); }} className="px-8 py-3 rounded-xl border border-gray-700 hover:bg-gray-800 text-white font-bold transition">Close</button>
+                    {quizResult.score < 50 && (
+                      <button onClick={handleStartQuiz} className="px-8 py-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold transition">Try Again</button>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
