@@ -17,6 +17,7 @@ from database import subject_collection, video_collection, db
 
 # ─────────── Config ───────────
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
+HF_API_KEY  = os.getenv("HF_API_KEY", "")
 YT_API_KEY  = os.getenv("YT_API_KEY", "")
 JWT_SECRET  = os.getenv("JWT_SECRET", "super_secret")
 JWT_ALGO    = "HS256"
@@ -106,6 +107,20 @@ def parse_user(doc) -> dict:
 def parse_subject(doc) -> dict:
     return {"id": str(doc["_id"]), "user_id": doc.get("user_id",""), "title": doc.get("title",""), "description": doc.get("description",""), "progress_percentage": doc.get("progress_percentage",0), "nodes": doc.get("nodes",[]), "edges": doc.get("edges",[]), "xp": doc.get("xp",0), "level": doc.get("level",1), "created_at": doc.get("created_at","")}
 
+def generate_hf_content(prompt: str) -> str:
+    if not HF_API_KEY:
+        raise HTTPException(status_code=500, detail="Gemini quota exceeded and no HuggingFace API key found for fallback.")
+    url = "https://api-inference.huggingface.co/models/HuggingFaceH4/zephyr-7b-beta"
+    headers = {"Authorization": f"Bearer {HF_API_KEY}", "Content-Type": "application/json"}
+    payload = {
+        "inputs": f"<|system|>\nYou are a highly advanced AI mentor and strict academic evaluator. Follow instructions strictly.\n<|user|>\n{prompt}\n<|assistant|>\n", 
+        "parameters": {"max_new_tokens": 1024, "temperature": 0.4, "return_full_text": False}
+    }
+    response = requests.post(url, headers=headers, json=payload, timeout=20)
+    if response.status_code == 200:
+        return response.json()[0]['generated_text']
+    raise HTTPException(status_code=500, detail=f"HF Fallback failed: {response.text}")
+
 def generate_gemini_content(prompt: str, user_api_key: str = "", default_model: str = "gemini-pro") -> str:
     cleaned_user_key = (user_api_key or "").strip()
     key = cleaned_user_key if cleaned_user_key else GEMINI_API_KEY
@@ -141,9 +156,21 @@ def generate_gemini_content(prompt: str, user_api_key: str = "", default_model: 
         try: err_msg = ex.response.json().get("error", {}).get("message", str(ex))
         except: err_msg = str(ex)
         print(f"CRITICAL GEMINI ERROR: {err_msg}")
-        raise HTTPException(status_code=500, detail=f"Gemini API Error: {err_msg}")
+        
+        # --- HUGGINGFACE FALLBACK ENGINE ---
+        print("FALLING BACK TO HUGGINGFACE INFERENCE API...")
+        try:
+            return generate_hf_content(prompt)
+        except Exception as hf_ex:
+            print(f"HF ALSO FAILED: {hf_ex}")
+            raise HTTPException(status_code=500, detail=f"Both Primary Engine (Gemini) and Fallback Engine (HF) failed. Gemini detail: {err_msg}")
+
     except Exception as ex:
-        raise HTTPException(status_code=500, detail=f"Gemini API Error: {str(ex)}")
+        print(f"General Gemini Exception: {ex}. FALLING BACK TO HUGGINGFACE...")
+        try:
+            return generate_hf_content(prompt)
+        except Exception as hf_ex:
+            raise HTTPException(status_code=500, detail=f"AI Engines are completely down. {ex}")
 
 def get_current_user(creds: HTTPAuthorizationCredentials = Depends(bearer)):
     if not creds:
