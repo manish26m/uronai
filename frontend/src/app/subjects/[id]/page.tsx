@@ -190,7 +190,7 @@ export default function LearningArena({ params }: { params: Promise<{ id: string
   };
 
   return (
-    <div className="flex flex-col h-[calc(100vh-80px)] max-w-[1700px] mx-auto w-full">
+    <div className="flex flex-col min-h-[calc(100vh-80px)] max-w-[1700px] mx-auto w-full pb-10">
       {/* Top Bar */}
       <div className="flex items-center justify-between mb-4 shrink-0 px-1">
         <div className="flex items-center gap-3">
@@ -220,7 +220,7 @@ export default function LearningArena({ params }: { params: Promise<{ id: string
       </div>
 
       {/* 3-Zone Arena Redesign: Top-Horizontal Roadmap, Center-Video, Right-Sidebar (Chat+Quiz) */}
-      <div className="flex-1 flex flex-col gap-4 min-h-0 overflow-hidden">
+      <div className="flex-1 flex flex-col gap-4">
         
         {/* TOP: Horizontal Roadmap */}
         <div className="shrink-0 pt-2 pb-1">
@@ -235,10 +235,10 @@ export default function LearningArena({ params }: { params: Promise<{ id: string
           />
         </div>
 
-        <div className="flex-1 grid grid-cols-[1fr_350px] gap-4 min-h-0 overflow-hidden">
+        <div className="flex-1 grid grid-cols-1 lg:grid-cols-[1fr_350px] gap-4">
           
           {/* LEFT/CENTER: Content (Video + Description) %} */}
-          <div className="flex flex-col gap-3 overflow-y-auto custom-scrollbar pr-2 min-h-0">
+          <div className="flex flex-col gap-3">
             {!activeNode ? (
               <div className="flex-1 bg-gray-950/50 border border-dashed border-gray-800/50 rounded-2xl flex flex-col items-center justify-center text-center p-10">
                 <div className="w-16 h-16 bg-red-500/10 rounded-2xl flex items-center justify-center text-red-400 mb-4 border border-red-500/20"><PlayCircle size={30} /></div>
@@ -303,7 +303,7 @@ export default function LearningArena({ params }: { params: Promise<{ id: string
             )}
           </div>
           {/* RIGHT: Sidebar (Chat + Assessment) */}
-          <div className="flex flex-col gap-4 overflow-hidden min-h-0">
+          <div className="flex flex-col gap-4 lg:sticky lg:top-4 h-fit">
             {/* AI Tutor Chat (Now takes more space) */}
             <div className={`flex-1 flex flex-col bg-gray-950/80 border border-gray-800/50 rounded-2xl overflow-hidden backdrop-blur-sm ${!activeNode || activeNode.status === 'locked' ? 'opacity-50 grayscale pointer-events-none' : ''}`}>
               <div className="p-3 border-b border-gray-800/50 shrink-0 flex items-center gap-2">

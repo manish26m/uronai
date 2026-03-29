@@ -75,13 +75,14 @@ export default function Dashboard() {
   const greeting = hour < 12 ? "Good Morning" : hour < 17 ? "Good Afternoon" : "Good Evening";
 
   return (
-    <div className="space-y-8 max-w-7xl mx-auto">
-      {/* Hero Row */}
-      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-red-900/40 via-amber-900/30 to-gray-950 border border-red-800/30 p-8 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,rgba(59,130,246,0.12),transparent_70%)] pointer-events-none" />
-        <div>
-          <p className="text-red-400 text-sm font-bold uppercase tracking-widest mb-1 flex items-center gap-2">
-            <Sparkles size={13} /> {greeting}
+    <div className="space-y-8 max-w-7xl mx-auto pb-10">
+      {/* Hero Row (3D Luxury Card) */}
+      <div className="relative rounded-3xl bg-gradient-to-br from-red-900/40 via-[#1a0f0f] to-[#0c0505] border border-red-800/30 p-8 flex flex-col md:flex-row items-start md:items-center justify-between gap-6 group transition-all duration-700 hover:[transform:perspective(1000px)_rotateX(2deg)_rotateY(-1deg)] shadow-[0_20px_50px_rgba(220,38,38,0.15)] overflow-hidden">
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,rgba(245,158,11,0.15),transparent_60%)] pointer-events-none" />
+        <div className="absolute -bottom-24 -left-24 w-64 h-64 bg-red-600/20 blur-[100px] rounded-full pointer-events-none" />
+        <div className="relative z-10">
+          <p className="text-amber-400 text-sm font-bold uppercase tracking-widest mb-1 flex items-center gap-2">
+            <Sparkles size={13} className="animate-pulse" /> {greeting}
           </p>
           <h1 className="text-4xl md:text-5xl font-black text-white tracking-tight">
             Welcome back, <span className="bg-gradient-to-r from-red-400 to-amber-400 bg-clip-text text-transparent">{userName}</span> 👋
@@ -89,7 +90,7 @@ export default function Dashboard() {
           <p className="text-gray-400 mt-2 text-sm max-w-md">Your adaptive AI learning dashboard. Track progress, unlock new skills, and match with career opportunities.</p>
         </div>
         <Link href="/subjects"
-          className="shrink-0 flex items-center gap-2 bg-red-600 hover:bg-red-500 text-white font-bold px-6 py-3 rounded-xl transition-all shadow-lg shadow-red-900/50 hover:scale-105"
+          className="relative z-10 shrink-0 flex items-center gap-2 bg-gradient-to-r from-red-600 to-amber-600 text-white font-bold px-8 py-4 rounded-xl transition-all duration-300 hover:shadow-[0_0_30px_rgba(245,158,11,0.4)] hover:scale-105 border border-amber-500/30"
         >
           <PlayCircle size={18} /> Continue Learning
         </Link>
@@ -103,16 +104,16 @@ export default function Dashboard() {
           { label: "Avg Progress", value: `${avgProgress}%`, icon: TrendingUp, color: "blue", sub: "Across all roadmaps" },
           { label: "Missions", value: subjects.length, icon: Map, color: "purple", sub: "Active roadmaps" },
         ].map(({ label, value, icon: Icon, color, sub }) => (
-          <div key={label} className={`relative overflow-hidden bg-gray-900/80 border border-gray-800 rounded-2xl p-5 group hover:border-${color}-500/30 transition-all hover:-translate-y-0.5`}>
-            <div className={`absolute top-0 right-0 w-24 h-24 bg-${color}-500/5 rounded-full -translate-y-6 translate-x-6 group-hover:bg-${color}-500/10 transition-colors`} />
-            <div className="flex items-start justify-between mb-3">
-              <p className="text-gray-500 text-xs font-bold uppercase tracking-wider">{label}</p>
-              <div className={`p-2 rounded-xl bg-${color}-500/10 text-${color}-400`}>
+          <div key={label} className={`relative overflow-hidden bg-[#110808]/80 backdrop-blur-md border border-white/5 rounded-2xl p-5 group transition-all duration-500 hover:[transform:perspective(1000px)_translateZ(10px)_rotateX(2deg)] shadow-xl hover:shadow-${color}-500/20`}>
+            <div className={`absolute top-0 right-0 w-32 h-32 bg-${color}-500/5 rounded-full blur-3xl -translate-y-10 translate-x-10 group-hover:bg-${color}-500/10 transition-colors`} />
+            <div className="flex items-start justify-between mb-3 relative z-10">
+              <p className="text-gray-400 text-xs font-bold uppercase tracking-wider">{label}</p>
+              <div className={`p-2 rounded-xl bg-${color}-500/10 text-${color}-400 border border-${color}-500/20 shadow-[0_0_15px_rgba(0,0,0,0)] group-hover:shadow-${color}-500/20 transition-all`}>
                 <Icon size={16} />
               </div>
             </div>
-            <p className="text-3xl font-black text-white">{value}</p>
-            <p className="text-gray-600 text-xs mt-1">{sub}</p>
+            <p className="text-3xl font-black text-white relative z-10">{value}</p>
+            <p className="text-gray-500 text-xs mt-1 relative z-10">{sub}</p>
           </div>
         ))}
       </div>
@@ -120,23 +121,24 @@ export default function Dashboard() {
       {/* Charts Row */}
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
         {/* XP Chart */}
-        <div className="lg:col-span-3 bg-gray-900/80 border border-gray-800 rounded-2xl p-6">
+        {/* XP Chart */}
+        <div className="lg:col-span-3 bg-[#110808]/80 backdrop-blur-md border border-white/5 rounded-2xl p-6 shadow-2xl transition-all duration-700 hover:[transform:perspective(1000px)_rotateX(1deg)]">
           <div className="flex items-center justify-between mb-6">
             <div>
-              <h3 className="font-bold text-white text-lg">XP This Week</h3>
-              <p className="text-gray-500 text-xs">Your learning momentum</p>
+              <h3 className="font-bold text-white text-lg flex items-center gap-2"><TrendingUp size={18} className="text-red-500" /> XP Trajectory</h3>
+              <p className="text-gray-500 text-xs">Your learning momentum over the last 7 days</p>
             </div>
-            <div className={`text-xs font-bold px-3 py-1.5 rounded-full border ${xpGainedThisWeek > 0 ? 'bg-red-500/10 text-red-400 border-red-500/20' : 'bg-gray-800 text-gray-400 border-gray-700'}`}>
+            <div className={`text-xs font-bold px-4 py-2 rounded-full border shadow-inner ${xpGainedThisWeek > 0 ? 'bg-red-500/10 text-red-400 border-red-500/30' : 'bg-gray-800 text-gray-400 border-gray-700'}`}>
               +{xpGainedThisWeek} XP ↑
             </div>
           </div>
-          <div className="h-[220px]">
+          <div className="h-[240px]">
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={dynamicProgressData}>
                 <defs>
                   <linearGradient id="xpGradient" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3} />
-                    <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
+                    <stop offset="5%" stopColor="#dc2626" stopOpacity={0.4} />
+                    <stop offset="95%" stopColor="#dc2626" stopOpacity={0} />
                   </linearGradient>
                 </defs>
                 <XAxis dataKey="day" stroke="#555" tick={{ fontSize: 11 }} />
@@ -153,7 +155,7 @@ export default function Dashboard() {
 
         {/* Quick Actions */}
         <div className="lg:col-span-2 flex flex-col gap-4">
-          <div className="bg-gray-900/80 border border-gray-800 rounded-2xl p-5 flex-1">
+          <div className="bg-[#110808]/80 backdrop-blur-md border border-white/5 rounded-2xl p-5 flex-1 shadow-2xl transition-all duration-700 hover:[transform:perspective(1000px)_rotateX(1deg)]">
             <h3 className="font-bold text-white mb-4 text-sm uppercase tracking-wider">Quick Launch</h3>
             <div className="space-y-2">
               {[
@@ -192,7 +194,7 @@ export default function Dashboard() {
               const completed = s.nodes?.filter((n: any) => n.status === "completed").length || 0;
               return (
                 <Link href={`/subjects/${s.id}`} key={s.id}
-                  className="group bg-gray-900/80 border border-gray-800 hover:border-red-500/30 rounded-2xl p-5 transition-all hover:-translate-y-0.5 hover:shadow-xl hover:shadow-red-900/10"
+                  className="group bg-[#110808]/80 backdrop-blur-md border border-white/5 hover:border-red-500/30 rounded-2xl p-5 transition-all duration-500 hover:[transform:perspective(1000px)_translateZ(10px)_rotateX(2deg)] shadow-xl hover:shadow-red-500/20"
                 >
                   <div className="flex items-start justify-between mb-3">
                     <div className="p-2.5 bg-red-500/10 text-red-400 rounded-xl border border-red-500/20">

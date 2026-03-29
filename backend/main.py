@@ -140,6 +140,7 @@ def generate_gemini_content(prompt: str, user_api_key: str = "", default_model: 
         err_msg = ""
         try: err_msg = ex.response.json().get("error", {}).get("message", str(ex))
         except: err_msg = str(ex)
+        print(f"CRITICAL GEMINI ERROR: {err_msg}")
         raise HTTPException(status_code=500, detail=f"Gemini API Error: {err_msg}")
     except Exception as ex:
         raise HTTPException(status_code=500, detail=f"Gemini API Error: {str(ex)}")
