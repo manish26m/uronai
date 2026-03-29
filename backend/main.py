@@ -107,7 +107,8 @@ def parse_subject(doc) -> dict:
     return {"id": str(doc["_id"]), "user_id": doc.get("user_id",""), "title": doc.get("title",""), "description": doc.get("description",""), "progress_percentage": doc.get("progress_percentage",0), "nodes": doc.get("nodes",[]), "edges": doc.get("edges",[]), "xp": doc.get("xp",0), "level": doc.get("level",1), "created_at": doc.get("created_at","")}
 
 def generate_gemini_content(prompt: str, user_api_key: str = "", default_model: str = "gemini-pro") -> str:
-    key = user_api_key if user_api_key else GEMINI_API_KEY
+    cleaned_user_key = (user_api_key or "").strip()
+    key = cleaned_user_key if cleaned_user_key else GEMINI_API_KEY
     if not key: raise HTTPException(status_code=400, detail="The platform's default AI key is missing. Please add your own Google Gemini API Key in the Settings page to continue.")
     
     model_name = default_model
@@ -494,7 +495,7 @@ def generate_quiz(req: QuizRequest, user=Depends(get_current_user)):
     else:
         context = f"You are a strict academic evaluator. Based on the concept of '{req.subject}'. "
     
-    prompt = f"{context}Generate exactly 4 extremely specific multiple choice questions. The questions must test unique facts explicitly mentioned in the text provided. Output ONLY a raw JSON array. Format: [{{\"id\":1,\"question\":\"...\",\"options\":[\"A\",\"B\",\"C\",\"D\"],\"answer\":\"A\",\"explanation\":\"...\"}}]"
+    prompt = f"{context}Generate exactly 4 extremely specific multiple choice questions. The questions must test unique facts explicitly mentioned in the text provided.\nCRITICAL JSON RULES:\n1. Output ONLY a raw, raw JSON array.\n2. Do NOT wrap in ```json or any markdown blocks.\n3. You MUST ensure all internal double-quotes in keys and values are escaped with a backslash.\nFormat strictly as: [{{\"id\":1,\"question\":\"...\",\"options\":[\"A\",\"B\",\"C\",\"D\"],\"answer\":\"A\",\"explanation\":\"...\"}}]"
 
     try:
         text = generate_gemini_content(prompt, db_user.get("gemini_api_key", ""), "gemini-pro")
