@@ -4,10 +4,10 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
 
 :root {
-  --background: #f4f4f5; /* whitish-grey */
-  --foreground: #111827; /* dark text for contrast */
-  --card: #ffffff;
-  --border: #e5e7eb;
+  --background: #000000;
+  --foreground: #ffffff;
+  --card: #0d0f1a;
+  --border: #1a1d2e;
 }
 
 * {

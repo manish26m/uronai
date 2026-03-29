@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { use } from "react";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
-import { Loader2, Lock, CheckCircle2, AlertCircle, PlayCircle, Trophy, Sparkles, ChevronLeft, Send, ToggleLeft, ToggleRight, Video, X } from "lucide-react";
+import { Loader2, Lock, CheckCircle2, AlertCircle, PlayCircle, Trophy, Sparkles, ChevronLeft, Send, ToggleLeft, ToggleRight, Video, X, Briefcase, ArrowRight } from "lucide-react";
 import RoadmapList from "@/components/RoadmapList";
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -235,7 +235,7 @@ export default function LearningArena({ params }: { params: Promise<{ id: string
           />
         </div>
 
-        <div className="flex-1 grid grid-cols-1 lg:grid-cols-[1fr_350px] gap-4">
+        <div className="flex-1 grid grid-cols-1 lg:grid-cols-[1fr_350px] xl:grid-cols-[1fr_350px_300px] gap-4">
           
           {/* LEFT/CENTER: Content (Video + Description) %} */}
           <div className="flex flex-col gap-3">
@@ -368,6 +368,50 @@ export default function LearningArena({ params }: { params: Promise<{ id: string
                   <Sparkles size={16} /> Launch Quiz
                 </button>
               )}
+            </div>
+          </div>
+          
+          {/* RIGHT-MOST: Career Alignment Map */}
+          <div className="flex flex-col gap-4 lg:sticky lg:top-4 h-fit">
+            <div className={`flex-1 flex flex-col bg-gray-950/80 border border-gray-800/50 rounded-2xl p-5 backdrop-blur-sm ${!activeNode ? 'opacity-50 grayscale pointer-events-none' : ''}`}>
+              <div className="flex items-center gap-2 mb-4">
+                <div className="w-9 h-9 rounded-xl bg-cyan-500/10 flex items-center justify-center text-cyan-400 border border-cyan-500/20">
+                  <Briefcase size={18} />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-white">Career Alignment</h3>
+                </div>
+              </div>
+              <p className="text-xs text-gray-400 mb-6 leading-relaxed">Based on your progress in <strong className="text-white">{subject.title}</strong>, you are tracking towards the following roles:</p>
+              
+              <div className="space-y-4">
+                <div className="bg-gray-900/60 border border-gray-800 rounded-xl p-3 relative overflow-hidden group">
+                  <div className="absolute top-0 right-0 w-16 h-16 bg-cyan-500/5 rounded-full blur-xl -translate-y-6 translate-x-6 group-hover:bg-cyan-500/10 transition-colors" />
+                  <h4 className="text-sm font-bold text-white mb-1">{subject.title} Specialist</h4>
+                  <div className="flex justify-between items-center text-xs mb-1.5 mt-2">
+                    <span className="text-gray-500 font-medium">Readiness</span>
+                    <span className="text-cyan-400 font-bold bg-cyan-500/10 px-2 py-0.5 rounded-md">{Math.max(10, subject.progress_percentage)}%</span>
+                  </div>
+                  <div className="h-1.5 bg-gray-800 rounded-full overflow-hidden">
+                    <div className="h-full bg-cyan-500 shadow-[0_0_10px_rgba(6,182,212,0.8)]" style={{width: `${Math.max(10, subject.progress_percentage)}%`}}></div>
+                  </div>
+                </div>
+                
+                <div className="bg-gray-900/60 border border-gray-800 rounded-xl p-3 relative overflow-hidden group">
+                  <div className="absolute top-0 right-0 w-16 h-16 bg-emerald-500/5 rounded-full blur-xl -translate-y-6 translate-x-6 group-hover:bg-emerald-500/10 transition-colors" />
+                  <h4 className="text-sm font-bold text-white mb-1">Junior {subject.title} Engineer</h4>
+                  <div className="flex justify-between items-center text-xs mb-1.5 mt-2">
+                    <span className="text-gray-500 font-medium">Readiness</span>
+                    <span className="text-emerald-400 font-bold bg-emerald-500/10 px-2 py-0.5 rounded-md">{Math.max(5, subject.progress_percentage - 20 < 0 ? 0 : subject.progress_percentage - 20)}%</span>
+                  </div>
+                  <div className="h-1.5 bg-gray-800 rounded-full overflow-hidden">
+                    <div className="h-full bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.8)]" style={{width: `${Math.max(5, subject.progress_percentage - 20 < 0 ? 0 : subject.progress_percentage - 20)}%`}}></div>
+                  </div>
+                </div>
+              </div>
+              <Link href="/careers" className="mt-8 flex items-center justify-center gap-2 text-xs font-bold text-cyan-500 hover:text-cyan-400 bg-cyan-500/10 hover:bg-cyan-500/15 py-3 rounded-xl transition group">
+                Explore Full Career Map <ArrowRight size={14} className="group-hover:translate-x-1 transition-transform" />
+              </Link>
             </div>
           </div>
 
