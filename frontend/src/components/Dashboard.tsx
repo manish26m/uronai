@@ -84,13 +84,13 @@ export default function Dashboard() {
           <p className="text-amber-400 text-sm font-bold uppercase tracking-widest mb-1 flex items-center gap-2">
             <Sparkles size={13} className="animate-pulse" /> {greeting}
           </p>
-          <h1 className="text-4xl md:text-5xl font-black text-white tracking-tight">
+          <h1 className="text-3xl sm:text-4xl md:text-5xl font-black text-white tracking-tight">
             Welcome back, <span className="bg-gradient-to-r from-red-400 to-amber-400 bg-clip-text text-transparent">{userName}</span> 👋
           </h1>
-          <p className="text-gray-400 mt-2 text-sm max-w-md">Your adaptive AI learning dashboard. Track progress, unlock new skills, and match with career opportunities.</p>
+          <p className="text-gray-400 mt-2 text-xs sm:text-sm max-w-md">Your adaptive AI learning dashboard. Track progress, unlock new skills, and match with career opportunities.</p>
         </div>
         <Link href="/subjects"
-          className="relative z-10 shrink-0 flex items-center gap-2 bg-gradient-to-r from-red-600 to-amber-600 text-white font-bold px-8 py-4 rounded-xl transition-all duration-300 hover:shadow-[0_0_30px_rgba(245,158,11,0.4)] hover:scale-105 border border-amber-500/30"
+          className="relative z-10 shrink-0 flex items-center justify-center gap-2 bg-gradient-to-r from-red-600 to-amber-600 text-white font-bold px-6 py-3 sm:px-8 sm:py-4 rounded-xl transition-all duration-300 hover:shadow-[0_0_30px_rgba(245,158,11,0.4)] hover:scale-105 border border-amber-500/30 text-sm sm:text-base w-full sm:w-auto"
         >
           <PlayCircle size={18} /> Continue Learning
         </Link>

@@ -190,31 +190,31 @@ export default function LearningArena({ params }: { params: Promise<{ id: string
   };
 
   return (
-    <div className="flex flex-col min-h-[calc(100vh-80px)] max-w-[1700px] mx-auto w-full pb-10">
+    <div className="flex flex-col min-h-[calc(100vh-80px)] max-w-[1700px] mx-auto w-full pb-10 px-4 sm:px-6">
       {/* Top Bar */}
-      <div className="flex items-center justify-between mb-4 shrink-0 px-1">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 shrink-0 gap-4">
         <div className="flex items-center gap-3">
           <Link href="/subjects" className="text-gray-500 hover:text-white transition flex items-center gap-1 text-sm"><ChevronLeft size={16} /> Missions</Link>
           <div className="h-4 w-px bg-gray-800" />
           <h1 className="text-lg font-bold text-white truncate max-w-sm">{subject.title}</h1>
         </div>
-        <div className="flex items-center gap-2 text-sm">
+        <div className="flex flex-wrap items-center gap-2 text-sm">
           {/* YouTube toggle */}
             <button
               onClick={() => setYtEnabled(v => !v)}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-semibold transition ${ytEnabled ? "border-red-500/30 bg-red-500/5 text-red-400 hover:bg-red-500/10" : "border-gray-700 bg-gray-900 text-gray-500 hover:text-gray-300"}`}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-[10px] sm:text-xs font-semibold transition ${ytEnabled ? "border-cyan-500/30 bg-cyan-500/5 text-cyan-400 hover:bg-cyan-500/10" : "border-gray-700 bg-gray-900 text-gray-500 hover:text-gray-300"}`}
             >
               <Video size={12} />
               {ytEnabled ? "YT: ON" : "YT: OFF"}
               {ytEnabled ? <ToggleRight size={14} /> : <ToggleLeft size={14} />}
             </button>
-          <div className="bg-red-500/10 border border-red-500/20 text-red-400 font-bold px-3 py-1.5 rounded-lg">Lv {subject.level}</div>
-          <div className="bg-gray-900 border border-gray-800 text-white font-bold px-3 py-1.5 rounded-lg">{subject.xp} XP</div>
+          <div className="bg-red-500/10 border border-red-500/20 text-red-400 font-bold px-3 py-1.5 rounded-lg text-xs">Lv {subject.level}</div>
+          <div className="bg-gray-900 border border-gray-800 text-white font-bold px-3 py-1.5 rounded-lg text-xs">{subject.xp} XP</div>
           <div className="bg-gray-900 border border-gray-800 px-3 py-1.5 rounded-lg flex items-center gap-2">
-            <div className="w-20 h-1.5 bg-gray-800 rounded-full overflow-hidden">
+            <div className="w-16 sm:w-20 h-1.5 bg-gray-800 rounded-full overflow-hidden">
               <div className="h-full bg-gradient-to-r from-red-600 to-amber-600 rounded-full" style={{ width: `${subject.progress_percentage}%` }} />
             </div>
-            <span className="text-xs font-bold text-gray-400">{subject.progress_percentage}%</span>
+            <span className="text-[10px] font-bold text-gray-400">{subject.progress_percentage}%</span>
           </div>
         </div>
       </div>
